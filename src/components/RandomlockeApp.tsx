@@ -9,6 +9,7 @@ import {
   Gauge,
   HeartPulse,
   Map as MapIcon,
+  Package,
   Plus,
   RotateCcw,
   Settings,
@@ -26,22 +27,36 @@ import {
   isNormalCaptureLimitReached,
   pokemonStatusLabels,
   updatePokemonStatus,
+  upsertInventoryItem,
   upsertRoute,
   upsertPokemon,
 } from "@/lib/game";
 import { serializeGameState } from "@/lib/storage";
-import type { Battle, Pokemon, PokemonStatus, Route } from "@/types/randomlocke";
+import type {
+  Battle,
+  InventoryCategory,
+  InventoryItem,
+  Pokemon,
+  PokemonStatus,
+  Route,
+} from "@/types/randomlocke";
+import {
+  InventoryEditorPanel,
+  inventoryCategoryLabels,
+  inventoryStatusLabels,
+} from "./InventoryForm";
 import { MetricCard } from "./MetricCard";
 import { PokemonEditorPanel } from "./PokemonForm";
 import { RouteEditorPanel } from "./RouteForm";
 import { StatusBadge } from "./StatusBadge";
 
-type View = "dashboard" | "pokemon" | "routes" | "dead" | "settings";
+type View = "dashboard" | "pokemon" | "routes" | "inventory" | "dead" | "settings";
 
 const navItems: { view: View; label: string; icon: typeof Gauge }[] = [
   { view: "dashboard", label: "Dashboard", icon: Gauge },
   { view: "pokemon", label: "Pokémon", icon: Shield },
   { view: "routes", label: "Rutas", icon: MapIcon },
+  { view: "inventory", label: "Bolsa", icon: Package },
   { view: "dead", label: "Muertos", icon: Skull },
   { view: "settings", label: "Ajustes", icon: Settings },
 ];
@@ -52,7 +67,10 @@ export function RandomlockeApp() {
   const [isPokemonPanelOpen, setIsPokemonPanelOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<Route | undefined>();
   const [isRoutePanelOpen, setIsRoutePanelOpen] = useState(false);
+  const [editingInventoryItem, setEditingInventoryItem] = useState<InventoryItem | undefined>();
+  const [isInventoryPanelOpen, setIsInventoryPanelOpen] = useState(false);
   const [filter, setFilter] = useState<PokemonStatus | "all">("all");
+  const [inventoryFilter, setInventoryFilter] = useState<InventoryCategory | "all">("all");
   const [importText, setImportText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const game = useLocalStorageGameState();
@@ -62,6 +80,11 @@ export function RandomlockeApp() {
     if (filter === "all") return game.state.pokemon;
     return game.state.pokemon.filter((pokemon) => pokemon.status === filter);
   }, [filter, game.state.pokemon]);
+
+  const filteredInventory = useMemo(() => {
+    if (inventoryFilter === "all") return game.state.inventory;
+    return game.state.inventory.filter((item) => item.category === inventoryFilter);
+  }, [game.state.inventory, inventoryFilter]);
 
   function setPokemonStatus(pokemonId: string, status: PokemonStatus) {
     game.setState((state) => updatePokemonStatus(state, pokemonId, status));
@@ -75,6 +98,11 @@ export function RandomlockeApp() {
   function saveRoute(route: Route) {
     game.setState((state) => upsertRoute(state, route));
     setEditingRoute(undefined);
+  }
+
+  function saveInventoryItem(item: InventoryItem) {
+    game.setState((state) => upsertInventoryItem(state, item));
+    setEditingInventoryItem(undefined);
   }
 
   function exportJsonFile() {
@@ -133,7 +161,7 @@ export function RandomlockeApp() {
                     <Icon size={16} aria-hidden="true" />
                     {label}
                   </span>
-                  <span className="font-mono text-xs tabular-nums">{navCount(itemView, game.state.pokemon, game.state.routes)}</span>
+                  <span className="font-mono text-xs tabular-nums">{navCount(itemView, game.state.pokemon, game.state.routes, game.state.inventory)}</span>
                 </button>
               );
             })}
@@ -213,6 +241,35 @@ export function RandomlockeApp() {
               />
             </>
           ) : null}
+          {view === "inventory" ? (
+            <>
+              <InventoryTable
+                items={filteredInventory}
+                pokemon={game.state.pokemon}
+                filter={inventoryFilter}
+                onFilterChange={setInventoryFilter}
+                onAdd={() => {
+                  setEditingInventoryItem(undefined);
+                  setIsInventoryPanelOpen(true);
+                }}
+                onEdit={(item) => {
+                  setEditingInventoryItem(item);
+                  setIsInventoryPanelOpen(true);
+                }}
+              />
+              <InventoryEditorPanel
+                open={isInventoryPanelOpen}
+                onOpenChange={(open) => {
+                  setIsInventoryPanelOpen(open);
+                  if (!open) setEditingInventoryItem(undefined);
+                }}
+                editing={editingInventoryItem}
+                pokemon={game.state.pokemon}
+                onSubmit={saveInventoryItem}
+                onCancel={() => setEditingInventoryItem(undefined)}
+              />
+            </>
+          ) : null}
           {view === "dead" ? <Graveyard pokemon={game.state.pokemon} /> : null}
           {view === "settings" ? (
             <SettingsPanel
@@ -232,9 +289,10 @@ export function RandomlockeApp() {
   );
 }
 
-function navCount(view: View, pokemon: Pokemon[], routes: Route[]) {
+function navCount(view: View, pokemon: Pokemon[], routes: Route[], inventory: InventoryItem[]) {
   if (view === "pokemon") return pokemon.length;
   if (view === "routes") return routes.length;
+  if (view === "inventory") return inventory.length;
   if (view === "dead") return pokemon.filter((entry) => entry.status === "dead").length;
   return "";
 }
@@ -473,6 +531,104 @@ function CaptureLimitBadge({ route }: { route: Route }) {
     <span className="inline-flex rounded-sm border border-stone-700 bg-stone-950 px-2 py-1 text-xs font-semibold text-stone-300">
       {used}/2 normales
     </span>
+  );
+}
+
+function InventoryTable({
+  items,
+  pokemon,
+  filter,
+  onFilterChange,
+  onAdd,
+  onEdit,
+}: {
+  items: InventoryItem[];
+  pokemon: Pokemon[];
+  filter: InventoryCategory | "all";
+  onFilterChange: (category: InventoryCategory | "all") => void;
+  onAdd: () => void;
+  onEdit: (item: InventoryItem) => void;
+}) {
+  const byId = new Map(pokemon.map((entry) => [entry.id, entry]));
+  const holderName = (id: string) => byId.get(id)?.nickname ?? "-";
+  const categories = Object.entries(inventoryCategoryLabels) as [InventoryCategory, string][];
+
+  return (
+    <section className="rounded-md border border-stone-800 bg-stone-900 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-black text-balance text-stone-50">Bolsa y MTs</h2>
+          <p className="mt-1 text-sm text-pretty text-stone-400">
+            Trackea MTs, objetos equipables, consumibles y hallazgos clave.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onAdd} className="action-button">
+            <Plus size={16} aria-hidden="true" />
+            Añadir objeto
+          </button>
+          <select
+            value={filter}
+            onChange={(event) => onFilterChange(event.target.value as InventoryCategory | "all")}
+            className="rounded-md border border-stone-700 bg-stone-950 px-3 py-2 text-sm font-semibold text-stone-100"
+          >
+            <option value="all">Todo</option>
+            {categories.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="mt-4 rounded-md border border-stone-800 bg-stone-950 p-5">
+          <p className="font-semibold text-stone-100">La bolsa aún está vacía.</p>
+          <p className="mt-1 text-sm text-pretty text-stone-400">
+            Añade la primera MT u objeto importante cuando lo encuentres.
+          </p>
+          <button type="button" onClick={onAdd} className="action-button mt-4">
+            <Plus size={16} aria-hidden="true" />
+            Añadir objeto
+          </button>
+        </div>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Objeto</th>
+                <th>Categoría</th>
+                <th>Cantidad</th>
+                <th>Estado</th>
+                <th>Asignado</th>
+                <th>Ubicación</th>
+                <th>Notas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <button type="button" onClick={() => onEdit(item)} className="text-left">
+                      <span className="block font-black text-stone-50">{item.name}</span>
+                      <span className="text-sm text-stone-500">Editar objeto</span>
+                    </button>
+                  </td>
+                  <td>{inventoryCategoryLabels[item.category]}</td>
+                  <td className="font-mono tabular-nums text-amber-200">{item.quantity}</td>
+                  <td>{inventoryStatusLabels[item.status]}</td>
+                  <td>{holderName(item.holderPokemonId)}</td>
+                  <td>{item.location || "-"}</td>
+                  <td className="max-w-md text-pretty text-stone-400">{item.notes || "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

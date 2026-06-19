@@ -17,6 +17,17 @@ export type RouteStatus =
 
 export type BattleType = "gym" | "friend" | "rival" | "boss" | "other";
 
+export type InventoryCategory =
+  | "tm"
+  | "held_item"
+  | "medicine"
+  | "berry"
+  | "battle_item"
+  | "key_item"
+  | "other";
+
+export type InventoryStatus = "available" | "equipped" | "used" | "sold" | "reserved";
+
 export type Pokemon = {
   id: string;
   species: string;
@@ -55,6 +66,19 @@ export type Battle = {
   completed: boolean;
 };
 
+export type InventoryItem = {
+  id: string;
+  name: string;
+  category: InventoryCategory;
+  quantity: number;
+  location: string;
+  status: InventoryStatus;
+  holderPokemonId: string;
+  notes: string;
+};
+
+export type InventoryItemDraft = Omit<InventoryItem, "id">;
+
 export type LevelCap = {
   gym: number;
   leader: string;
@@ -65,6 +89,7 @@ export type GameState = {
   pokemon: Pokemon[];
   routes: Route[];
   battles: Battle[];
+  inventory: InventoryItem[];
   levelCaps: LevelCap[];
   updatedAt: string;
 };

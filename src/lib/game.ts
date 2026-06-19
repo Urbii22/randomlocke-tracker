@@ -4,6 +4,8 @@ import type {
   BattleType,
   DashboardSummary,
   GameState,
+  InventoryItem,
+  InventoryItemDraft,
   Pokemon,
   PokemonDraft,
   PokemonStatus,
@@ -78,6 +80,18 @@ export function createRouteDraft(): RouteDraft {
   };
 }
 
+export function createInventoryItemDraft(): InventoryItemDraft {
+  return {
+    name: "",
+    category: "tm",
+    quantity: 1,
+    location: "",
+    status: "available",
+    holderPokemonId: "",
+    notes: "",
+  };
+}
+
 export function validatePokemonDraft(draft: PokemonDraft): string[] {
   const errors: string[] = [];
 
@@ -122,6 +136,20 @@ export function validateRouteDraft(draft: RouteDraft): string[] {
   return errors;
 }
 
+export function validateInventoryItemDraft(draft: InventoryItemDraft): string[] {
+  const errors: string[] = [];
+
+  if (!draft.name.trim()) {
+    errors.push("El nombre del objeto es obligatorio.");
+  }
+
+  if (!Number.isInteger(draft.quantity) || draft.quantity < 1) {
+    errors.push("La cantidad debe ser al menos 1.");
+  }
+
+  return errors;
+}
+
 export function upsertPokemon(state: GameState, pokemon: Pokemon): GameState {
   const exists = state.pokemon.some((entry) => entry.id === pokemon.id);
   const nextPokemon = exists
@@ -138,6 +166,15 @@ export function upsertRoute(state: GameState, route: Route): GameState {
     : [route, ...state.routes];
 
   return { ...state, routes: nextRoutes, updatedAt: new Date().toISOString() };
+}
+
+export function upsertInventoryItem(state: GameState, item: InventoryItem): GameState {
+  const exists = state.inventory.some((entry) => entry.id === item.id);
+  const nextInventory = exists
+    ? state.inventory.map((entry) => (entry.id === item.id ? item : entry))
+    : [item, ...state.inventory];
+
+  return { ...state, inventory: nextInventory, updatedAt: new Date().toISOString() };
 }
 
 export function isNormalCaptureLimitReached(route: Route): boolean {

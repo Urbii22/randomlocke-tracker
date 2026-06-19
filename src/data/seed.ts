@@ -34,6 +34,7 @@ export const seedGameState: GameState = {
       deathLocation: "",
     },
   ],
+  inventory: [],
   routes: [
     {
       id: "route-inicial",

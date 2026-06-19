@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateDashboardSummary,
+  createInventoryItemDraft,
   createInitialGameState,
   createRouteDraft,
   getNextBattle,
   isNormalCaptureLimitReached,
   upsertRoute,
+  upsertInventoryItem,
+  validateInventoryItemDraft,
   validateRouteDraft,
   validatePokemonDraft,
 } from "./game";
@@ -18,6 +21,7 @@ describe("Randomlocke game state", () => {
     expect(state.levelCaps[0]).toMatchObject({ gym: 1, leader: "Viola", cap: 14 });
     expect(state.battles.some((battle) => battle.type === "friend")).toBe(true);
     expect(state.routes).toHaveLength(1);
+    expect(state.inventory).toEqual([]);
     expect(state.pokemon).toHaveLength(1);
     expect(state.pokemon[0]).toMatchObject({
       species: "Aron",
@@ -137,6 +141,43 @@ describe("Randomlocke game state", () => {
     });
 
     expect(next.routes[0]).toMatchObject({ id: "route-22", name: "Ruta 22" });
+    expect(next.updatedAt).not.toBe(state.updatedAt);
+  });
+
+  it("creates and validates inventory item drafts", () => {
+    expect(createInventoryItemDraft()).toMatchObject({
+      name: "",
+      category: "tm",
+      quantity: 1,
+      location: "",
+      status: "available",
+      holderPokemonId: "",
+      notes: "",
+    });
+
+    expect(validateInventoryItemDraft({ ...createInventoryItemDraft(), quantity: 0 })).toEqual(
+      expect.arrayContaining([
+        "El nombre del objeto es obligatorio.",
+        "La cantidad debe ser al menos 1.",
+      ]),
+    );
+  });
+
+  it("upserts inventory items into game state", () => {
+    const state = createInitialGameState();
+    const next = upsertInventoryItem(state, {
+      id: "item-tm01",
+      name: "MT01 Afilagarras",
+      category: "tm",
+      quantity: 1,
+      location: "Ruta 5",
+      status: "available",
+      holderPokemonId: "",
+      notes: "Pendiente de revisar compatibilidad.",
+    });
+
+    expect(next.inventory).toHaveLength(1);
+    expect(next.inventory[0]).toMatchObject({ id: "item-tm01", category: "tm" });
     expect(next.updatedAt).not.toBe(state.updatedAt);
   });
 });
