@@ -11,23 +11,33 @@ import {
 } from "./game";
 
 describe("Randomlocke game state", () => {
-  it("creates an initial game state with Kalos level caps and sample data", () => {
+  it("creates an initial game state with Piedrita as the only adventure pokemon", () => {
     const state = createInitialGameState();
 
     expect(state.levelCaps).toHaveLength(8);
     expect(state.levelCaps[0]).toMatchObject({ gym: 1, leader: "Viola", cap: 14 });
     expect(state.battles.some((battle) => battle.type === "friend")).toBe(true);
-    expect(state.routes.length).toBeGreaterThan(3);
-    expect(state.pokemon.length).toBeGreaterThan(3);
+    expect(state.routes).toHaveLength(1);
+    expect(state.pokemon).toHaveLength(1);
+    expect(state.pokemon[0]).toMatchObject({
+      species: "Aron",
+      nickname: "Piedrita",
+      level: 5,
+      types: ["Acero", "Roca"],
+      ability: "Tabla Terror",
+      moves: ["Cola Dragón", "Avalancha", "Psicocambio"],
+      status: "alive",
+      routeCaught: "Inicial",
+    });
   });
 
   it("summarizes team, box, dead and next progression targets", () => {
     const state = createInitialGameState();
     const summary = calculateDashboardSummary(state);
 
-    expect(summary.teamCount).toBe(3);
-    expect(summary.boxCount).toBe(2);
-    expect(summary.deadCount).toBe(1);
+    expect(summary.teamCount).toBe(1);
+    expect(summary.boxCount).toBe(0);
+    expect(summary.deadCount).toBe(0);
     expect(summary.currentLevelCap).toBe(14);
     expect(summary.nextGym?.name).toBe("Gimnasio de Ciudad Novarte");
     expect(summary.nextFriendBattle?.name).toBe("Combate contra amigos 1");

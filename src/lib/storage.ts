@@ -1,7 +1,7 @@
 import { createInitialGameState } from "@/lib/game";
 import type { GameState } from "@/types/randomlocke";
 
-export const STORAGE_KEY = "randomlocke-tracker-state-v1";
+export const STORAGE_KEY = "randomlocke-tracker-state-v2-piedrita";
 
 export function parseStoredGameState(raw: string | null): GameState {
   if (!raw) {
