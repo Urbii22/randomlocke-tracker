@@ -1,5 +1,6 @@
 "use client";
 
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import {
   Boxes,
   Cross,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useLocalStorageGameState } from "@/hooks/useLocalStorageGameState";
+import { cn } from "@/lib/cn";
 import {
   calculateDashboardSummary,
   pokemonStatusLabels,
@@ -81,26 +83,25 @@ export function RandomlockeApp() {
   }
 
   function resetGame() {
-    if (window.confirm("¿Resetear la partida y volver a los datos de ejemplo?")) {
-      game.reset();
-      setEditing(undefined);
-    }
+    game.reset();
+    setEditing(undefined);
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.16),_transparent_34rem),linear-gradient(135deg,_#09090b_0%,_#111318_48%,_#09090b_100%)] text-zinc-100">
-      <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="font-mono text-xs font-bold uppercase tracking-[0.32em] text-cyan-300">Pokémon Y randomlocke</p>
-              <h1 className="mt-2 text-3xl font-black text-zinc-50 sm:text-4xl">Randomlocke Tracker</h1>
-            </div>
-            <div className="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-sm font-bold text-cyan-100">
-              2 capturas por ruta · 1 vida · sin legendarios
-            </div>
+    <div className="min-h-dvh bg-stone-950 text-stone-100">
+      <div className="mx-auto grid max-w-[1600px] gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="border-b border-stone-800 bg-stone-950 px-4 py-4 lg:sticky lg:top-0 lg:min-h-dvh lg:border-b-0 lg:border-r lg:px-5 lg:py-6">
+          <div className="rounded-md border border-amber-400/30 bg-stone-900 p-4">
+            <p className="font-mono text-xs font-bold uppercase text-amber-300">Kalos field file</p>
+            <h1 className="mt-3 text-3xl font-black leading-8 text-balance text-stone-50">
+              Randomlocke Tracker
+            </h1>
+            <p className="mt-3 text-sm text-pretty text-stone-400">
+              1 vida, 2 capturas por zona, mote obligatorio y cero legendarios.
+            </p>
           </div>
-          <nav className="flex gap-2 overflow-x-auto pb-1" aria-label="Pantallas">
+
+          <nav className="mt-4 grid gap-2" aria-label="Pantallas">
             {navItems.map(({ view: itemView, label, icon: Icon }) => {
               const active = view === itemView;
               return (
@@ -108,52 +109,109 @@ export function RandomlockeApp() {
                   key={itemView}
                   type="button"
                   onClick={() => setView(itemView)}
-                  className={`flex min-h-10 items-center gap-2 rounded-md border px-3 py-2 text-sm font-bold transition ${
+                  className={cn(
+                    "flex min-h-11 items-center justify-between rounded-md border px-3 py-2 text-sm font-bold transition-colors",
                     active
-                      ? "border-cyan-300 bg-cyan-300 text-zinc-950"
-                      : "border-zinc-800 bg-zinc-950/80 text-zinc-300 hover:border-zinc-600 hover:text-zinc-50"
-                  }`}
+                      ? "border-amber-300 bg-amber-300 text-stone-950"
+                      : "border-stone-800 bg-stone-900 text-stone-300 hover:border-stone-600 hover:text-stone-50",
+                  )}
                   title={label}
                 >
-                  <Icon size={16} aria-hidden="true" />
-                  {label}
+                  <span className="flex items-center gap-2">
+                    <Icon size={16} aria-hidden="true" />
+                    {label}
+                  </span>
+                  <span className="font-mono text-xs tabular-nums">{navCount(itemView, game.state.pokemon, game.state.routes)}</span>
                 </button>
               );
             })}
           </nav>
-        </div>
-      </header>
 
-      <main className="mx-auto grid max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:px-8">
-        {!game.isReady ? <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-5 text-zinc-300">Cargando partida local...</div> : null}
-        {view === "dashboard" ? <Dashboard pokemon={game.state.pokemon} battles={game.state.battles} summary={summary} /> : null}
-        {view === "pokemon" ? (
-          <>
-            <PokemonForm key={editing?.id ?? "new"} editing={editing} onSubmit={savePokemon} onCancelEdit={() => setEditing(undefined)} />
-            <PokemonTable pokemon={filteredPokemon} filter={filter} onFilterChange={setFilter} onEdit={setEditing} onStatusChange={setPokemonStatus} />
-          </>
-        ) : null}
-        {view === "routes" ? <RoutesTable pokemon={game.state.pokemon} routes={game.state.routes} /> : null}
-        {view === "dead" ? <Graveyard pokemon={game.state.pokemon} /> : null}
-        {view === "settings" ? (
-          <section className="grid gap-4 rounded-lg border border-zinc-800 bg-zinc-950/90 p-4">
-            <h2 className="text-xl font-black text-zinc-50">Ajustes</h2>
-            <div className="flex flex-wrap gap-3">
-              <button className="action-button" onClick={exportJsonFile} type="button"><Download size={16} /> Exportar JSON</button>
-              <button className="action-button" onClick={() => fileInputRef.current?.click()} type="button"><Upload size={16} /> Importar archivo</button>
-              <button className="danger-button" onClick={resetGame} type="button"><RotateCcw size={16} /> Resetear partida</button>
+          <div className="mt-4 grid grid-cols-3 gap-2 text-center lg:grid-cols-1 lg:text-left">
+            <SideStat label="Cap" value={summary.currentLevelCap} />
+            <SideStat label="Equipo" value={`${summary.teamCount}/6`} />
+            <SideStat label="Muertos" value={summary.deadCount} />
+          </div>
+        </aside>
+
+        <main className="grid gap-5 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          {!game.isReady ? (
+            <div className="rounded-md border border-stone-800 bg-stone-900 p-5 text-stone-300">
+              Cargando partida local...
             </div>
-            <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={(event) => void importFromFile(event.target.files?.[0])} />
-            <label className="grid gap-2 text-sm font-semibold text-zinc-300">
-              Importar pegando JSON
-              <textarea value={importText} onChange={(event) => setImportText(event.target.value)} className="min-h-40 rounded-md border border-zinc-800 bg-zinc-900 p-3 font-mono text-sm text-zinc-100 outline-none focus:border-cyan-300" />
-            </label>
-            <button className="action-button w-fit" onClick={() => game.importJson(importText)} type="button">Aplicar JSON pegado</button>
-            <pre className="max-h-96 overflow-auto rounded-md border border-zinc-800 bg-zinc-900 p-3 text-xs text-zinc-300">{serializeGameState(game.state)}</pre>
-          </section>
-        ) : null}
-      </main>
+          ) : null}
+
+          <RunHeader nextGym={summary.nextGym} nextFriendBattle={summary.nextFriendBattle} />
+
+          {view === "dashboard" ? (
+            <Dashboard pokemon={game.state.pokemon} battles={game.state.battles} summary={summary} />
+          ) : null}
+          {view === "pokemon" ? (
+            <>
+              <PokemonForm key={editing?.id ?? "new"} editing={editing} onSubmit={savePokemon} onCancelEdit={() => setEditing(undefined)} />
+              <PokemonTable pokemon={filteredPokemon} filter={filter} onFilterChange={setFilter} onEdit={setEditing} onStatusChange={setPokemonStatus} />
+            </>
+          ) : null}
+          {view === "routes" ? <RoutesTable pokemon={game.state.pokemon} routes={game.state.routes} /> : null}
+          {view === "dead" ? <Graveyard pokemon={game.state.pokemon} /> : null}
+          {view === "settings" ? (
+            <SettingsPanel
+              exportJsonFile={exportJsonFile}
+              fileInputRef={fileInputRef}
+              importText={importText}
+              setImportText={setImportText}
+              importFromFile={importFromFile}
+              applyImport={() => game.importJson(importText)}
+              resetGame={resetGame}
+              stateJson={serializeGameState(game.state)}
+            />
+          ) : null}
+        </main>
+      </div>
     </div>
+  );
+}
+
+function navCount(view: View, pokemon: Pokemon[], routes: Route[]) {
+  if (view === "pokemon") return pokemon.length;
+  if (view === "routes") return routes.length;
+  if (view === "dead") return pokemon.filter((entry) => entry.status === "dead").length;
+  return "";
+}
+
+function SideStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-md border border-stone-800 bg-stone-900 px-3 py-2">
+      <p className="text-xs font-semibold uppercase text-stone-500">{label}</p>
+      <p className="font-mono text-xl font-black tabular-nums text-stone-50">{value}</p>
+    </div>
+  );
+}
+
+function RunHeader({ nextGym, nextFriendBattle }: { nextGym?: Battle; nextFriendBattle?: Battle }) {
+  return (
+    <section className="grid gap-3 rounded-md border border-stone-800 bg-stone-900 p-4 md:grid-cols-[1fr_auto]">
+      <div>
+        <p className="text-sm font-bold uppercase text-amber-300">Próxima decisión crítica</p>
+        <h2 className="mt-1 text-2xl font-black text-balance text-stone-50">
+          {nextGym?.name ?? "Ruta final sin gimnasio pendiente"}
+        </h2>
+        <p className="mt-2 text-sm text-pretty text-stone-400">
+          Combate de amigos en cola: {nextFriendBattle?.name ?? "sin pendiente"}.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 md:min-w-72">
+        <div className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3">
+          <p className="text-xs font-semibold uppercase text-amber-200/70">Level cap</p>
+          <p className="font-mono text-4xl font-black tabular-nums text-amber-100">{nextGym?.levelCap ?? "-"}</p>
+        </div>
+        <div className="rounded-md border border-stone-700 bg-stone-950 p-3">
+          <p className="text-xs font-semibold uppercase text-stone-500">Regla</p>
+          <p className="mt-1 text-sm font-bold text-stone-200">No revivir</p>
+          <p className="text-sm font-bold text-stone-200">No legendarios</p>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -161,60 +219,80 @@ function Dashboard({ pokemon, battles, summary }: { pokemon: Pokemon[]; battles:
   const team = pokemon.filter((entry) => entry.status === "alive");
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Level cap" value={summary.currentLevelCap} detail={summary.nextGym?.name ?? "Liga pendiente"} icon={Flame} />
-        <MetricCard label="Equipo" value={`${summary.teamCount}/6`} detail="Pokémon activos con una vida" icon={HeartPulse} />
-        <MetricCard label="Caja" value={summary.boxCount} detail={`${summary.candidateCount} candidatos listos`} icon={Boxes} />
-        <MetricCard label="Muertos" value={summary.deadCount} detail="Cementerio permanente" icon={Cross} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Level cap" value={summary.currentLevelCap} detail={summary.nextGym?.name ?? "Liga pendiente"} icon={Flame} tone="amber" />
+        <MetricCard label="Equipo" value={`${summary.teamCount}/6`} detail="Slots activos con una vida" icon={HeartPulse} tone="cyan" />
+        <MetricCard label="Caja" value={summary.boxCount} detail={`${summary.candidateCount} candidatos listos`} icon={Boxes} tone="zinc" />
+        <MetricCard label="Muertos" value={summary.deadCount} detail="Cementerio permanente" icon={Cross} tone="rose" />
       </div>
-      <section className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
-        <div className="rounded-lg border border-zinc-800 bg-zinc-950/90 p-4">
-          <h2 className="text-xl font-black text-zinc-50">Equipo actual</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {team.map((pokemon) => (
-              <article key={pokemon.id} className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-black text-zinc-50">{pokemon.nickname}</p>
-                    <p className="text-sm text-zinc-400">{pokemon.species} · Nv. {pokemon.level}</p>
-                  </div>
-                  <span className="font-mono text-lg font-black text-cyan-200">{pokemon.value}/10</span>
-                </div>
-                <p className="mt-3 text-sm text-zinc-300">{pokemon.role || "Sin rol asignado"}</p>
-                <p className="mt-2 text-xs text-zinc-500">{pokemon.moves.join(" · ") || "Sin movimientos"}</p>
-              </article>
-            ))}
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_420px]">
+        <div className="rounded-md border border-stone-800 bg-stone-900 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-black text-balance text-stone-50">Equipo actual</h2>
+            <span className="rounded-sm border border-stone-700 px-2 py-1 font-mono text-xs font-bold tabular-nums text-stone-400">
+              {team.length}/6
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+            {team.map((entry) => <RosterCard key={entry.id} pokemon={entry} />)}
           </div>
         </div>
+
         <div className="grid gap-4">
           <BattleCard title="Próximo gimnasio" battle={summary.nextGym} icon={Swords} />
           <BattleCard title="Próximo combate contra amigos" battle={summary.nextFriendBattle} icon={Users} />
-          <div className="rounded-lg border border-zinc-800 bg-zinc-950/90 p-4">
-            <h2 className="text-lg font-black text-zinc-50">Combates pendientes</h2>
+          <section className="rounded-md border border-stone-800 bg-stone-900 p-4">
+            <h2 className="text-lg font-black text-stone-50">Cola de combates</h2>
             <div className="mt-3 grid gap-2">
-              {battles.filter((battle) => !battle.completed).slice(0, 5).map((battle) => (
-                <div key={battle.id} className="flex items-center justify-between gap-3 rounded-md bg-zinc-900 px-3 py-2 text-sm">
-                  <span className="font-semibold text-zinc-200">{battle.name}</span>
-                  <span className="font-mono text-cyan-200">{battle.levelCap ?? "-"}</span>
+              {battles.filter((battle) => !battle.completed).slice(0, 6).map((battle) => (
+                <div key={battle.id} className="grid grid-cols-[1fr_auto] gap-3 rounded-md border border-stone-800 bg-stone-950 px-3 py-2 text-sm">
+                  <span className="truncate font-semibold text-stone-200">{battle.name}</span>
+                  <span className="font-mono tabular-nums text-amber-200">{battle.levelCap ?? "-"}</span>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         </div>
       </section>
     </>
   );
 }
 
+function RosterCard({ pokemon }: { pokemon: Pokemon }) {
+  return (
+    <article className="rounded-md border border-stone-800 bg-stone-950 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-lg font-black text-stone-50">{pokemon.nickname}</p>
+          <p className="text-sm text-stone-400">{pokemon.species} · Nv. {pokemon.level}</p>
+        </div>
+        <span className="rounded-sm bg-amber-300 px-2 py-1 font-mono text-sm font-black tabular-nums text-stone-950">
+          {pokemon.value}/10
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {pokemon.types.map((type) => (
+          <span key={type} className="rounded-sm border border-stone-700 px-2 py-1 text-xs font-bold text-stone-300">
+            {type}
+          </span>
+        ))}
+      </div>
+      <p className="mt-3 text-sm font-semibold text-pretty text-stone-200">{pokemon.role || "Sin rol asignado"}</p>
+      <p className="mt-2 line-clamp-2 text-xs text-stone-500">{pokemon.moves.join(" · ") || "Sin movimientos"}</p>
+    </article>
+  );
+}
+
 function BattleCard({ title, battle, icon: Icon }: { title: string; battle?: Battle; icon: typeof Gauge }) {
   return (
-    <section className="rounded-lg border border-zinc-800 bg-zinc-950/90 p-4">
-      <div className="flex items-center gap-2 text-cyan-200">
+    <section className="rounded-md border border-stone-800 bg-stone-900 p-4">
+      <div className="flex items-center gap-2 text-amber-200">
         <Icon size={18} aria-hidden="true" />
-        <h2 className="text-sm font-black uppercase tracking-[0.18em]">{title}</h2>
+        <h2 className="text-sm font-black uppercase">{title}</h2>
       </div>
-      <p className="mt-3 text-lg font-black text-zinc-50">{battle?.name ?? "Sin pendiente"}</p>
-      <p className="mt-1 text-sm text-zinc-400">Cap {battle?.levelCap ?? "-"} · {battle?.notes || "Sin notas"}</p>
+      <p className="mt-3 text-lg font-black text-balance text-stone-50">{battle?.name ?? "Sin pendiente"}</p>
+      <p className="mt-1 text-sm text-pretty text-stone-400">Cap {battle?.levelCap ?? "-"} · {battle?.notes || "Sin notas"}</p>
     </section>
   );
 }
@@ -228,10 +306,10 @@ function PokemonTable({ pokemon, filter, onFilterChange, onEdit, onStatusChange 
 }) {
   const statuses = Object.keys(pokemonStatusLabels) as PokemonStatus[];
   return (
-    <section className="rounded-lg border border-zinc-800 bg-zinc-950/90 p-4">
+    <section className="rounded-md border border-stone-800 bg-stone-900 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-black text-zinc-50">Pokémon registrados</h2>
-        <select value={filter} onChange={(event) => onFilterChange(event.target.value as PokemonStatus | "all")} className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm font-semibold text-zinc-100">
+        <h2 className="text-xl font-black text-balance text-stone-50">Pokémon registrados</h2>
+        <select value={filter} onChange={(event) => onFilterChange(event.target.value as PokemonStatus | "all")} className="rounded-md border border-stone-700 bg-stone-950 px-3 py-2 text-sm font-semibold text-stone-100">
           <option value="all">Todos</option>
           {statuses.map((status) => <option key={status} value={status}>{pokemonStatusLabels[status]}</option>)}
         </select>
@@ -242,12 +320,12 @@ function PokemonTable({ pokemon, filter, onFilterChange, onEdit, onStatusChange 
           <tbody>
             {pokemon.map((entry) => (
               <tr key={entry.id}>
-                <td><button className="text-left" onClick={() => onEdit(entry)} type="button"><span className="block font-black text-zinc-50">{entry.nickname}</span><span className="text-sm text-zinc-400">{entry.species} · Nv. {entry.level}</span></button></td>
+                <td><button className="text-left" onClick={() => onEdit(entry)} type="button"><span className="block font-black text-stone-50">{entry.nickname}</span><span className="text-sm text-stone-400">{entry.species} · Nv. {entry.level}</span></button></td>
                 <td><StatusBadge kind="pokemon" status={entry.status} /></td>
                 <td>{entry.types.join(", ") || "-"}</td>
                 <td>{entry.role || "-"}</td>
                 <td>{entry.routeCaught || "-"}</td>
-                <td className="font-mono text-cyan-200">{entry.value}/10</td>
+                <td className="font-mono tabular-nums text-amber-200">{entry.value}/10</td>
                 <td><div className="flex min-w-64 flex-wrap gap-2"><button className="mini-button" onClick={() => onStatusChange(entry.id, "alive")} type="button">Equipo</button><button className="mini-button" onClick={() => onStatusChange(entry.id, "box")} type="button">Caja</button><button className="mini-button danger" onClick={() => onStatusChange(entry.id, "dead")} type="button">Muerto</button></div></td>
               </tr>
             ))}
@@ -262,19 +340,19 @@ function RoutesTable({ pokemon, routes }: { pokemon: Pokemon[]; routes: Route[] 
   const byId = new Map(pokemon.map((entry) => [entry.id, entry]));
   const nameFor = (id: string) => byId.get(id)?.nickname ?? "-";
   return (
-    <section className="rounded-lg border border-zinc-800 bg-zinc-950/90 p-4">
-      <h2 className="text-xl font-black text-zinc-50">Rutas y capturas</h2>
+    <section className="rounded-md border border-stone-800 bg-stone-900 p-4">
+      <h2 className="text-xl font-black text-balance text-stone-50">Rutas y capturas</h2>
       <div className="mt-4 overflow-x-auto">
         <table className="data-table">
           <thead><tr><th>Ruta</th><th>Captura 1</th><th>Captura 2</th><th>Estado</th><th>Notas</th></tr></thead>
           <tbody>
             {routes.map((route) => (
               <tr key={route.id}>
-                <td className="font-black text-zinc-50">{route.name}</td>
+                <td className="font-black text-stone-50">{route.name}</td>
                 <td>{nameFor(route.capture1PokemonId)}</td>
                 <td>{nameFor(route.capture2PokemonId)}</td>
                 <td><StatusBadge kind="route" status={route.status} /></td>
-                <td className="max-w-md text-zinc-400">{route.notes || "-"}</td>
+                <td className="max-w-md text-pretty text-stone-400">{route.notes || "-"}</td>
               </tr>
             ))}
           </tbody>
@@ -287,21 +365,82 @@ function RoutesTable({ pokemon, routes }: { pokemon: Pokemon[]; routes: Route[] 
 function Graveyard({ pokemon }: { pokemon: Pokemon[] }) {
   const dead = pokemon.filter((entry) => entry.status === "dead");
   return (
-    <section className="rounded-lg border border-zinc-800 bg-zinc-950/90 p-4">
-      <h2 className="text-xl font-black text-zinc-50">Cementerio</h2>
+    <section className="rounded-md border border-stone-800 bg-stone-900 p-4">
+      <h2 className="text-xl font-black text-balance text-stone-50">Cementerio</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {dead.map((entry) => (
-          <article key={entry.id} className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-4">
-            <p className="text-lg font-black text-zinc-50">{entry.nickname}</p>
-            <p className="text-sm text-zinc-400">{entry.species} · Nv. {entry.level}</p>
+          <article key={entry.id} className="rounded-md border border-rose-500/30 bg-stone-950 p-4">
+            <p className="text-lg font-black text-stone-50">{entry.nickname}</p>
+            <p className="text-sm text-stone-400">{entry.species} · Nv. {entry.level}</p>
             <div className="mt-4 grid gap-2 text-sm">
               <p><span className="font-bold text-rose-200">Causa:</span> {entry.deathCause || "-"}</p>
               <p><span className="font-bold text-rose-200">Lugar:</span> {entry.deathLocation || "-"}</p>
-              <p className="text-zinc-400">{entry.notes || "Sin comentario."}</p>
+              <p className="text-pretty text-stone-400">{entry.notes || "Sin comentario."}</p>
             </div>
           </article>
         ))}
       </div>
     </section>
+  );
+}
+
+function SettingsPanel({
+  exportJsonFile,
+  fileInputRef,
+  importText,
+  setImportText,
+  importFromFile,
+  applyImport,
+  resetGame,
+  stateJson,
+}: {
+  exportJsonFile: () => void;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  importText: string;
+  setImportText: (value: string) => void;
+  importFromFile: (file?: File) => Promise<void>;
+  applyImport: () => void;
+  resetGame: () => void;
+  stateJson: string;
+}) {
+  return (
+    <section className="grid gap-4 rounded-md border border-stone-800 bg-stone-900 p-4">
+      <h2 className="text-xl font-black text-balance text-stone-50">Ajustes</h2>
+      <div className="flex flex-wrap gap-3">
+        <button className="action-button" onClick={exportJsonFile} type="button"><Download size={16} /> Exportar JSON</button>
+        <button className="action-button" onClick={() => fileInputRef.current?.click()} type="button"><Upload size={16} /> Importar archivo</button>
+        <ResetDialog onConfirm={resetGame} />
+      </div>
+      <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={(event) => void importFromFile(event.target.files?.[0])} />
+      <label className="grid gap-2 text-sm font-semibold text-stone-300">
+        Importar pegando JSON
+        <textarea value={importText} onChange={(event) => setImportText(event.target.value)} className="min-h-40 rounded-md border border-stone-700 bg-stone-950 p-3 font-mono text-sm text-stone-100 outline-none focus:border-amber-300" />
+      </label>
+      <button className="action-button w-fit" onClick={applyImport} type="button">Aplicar JSON pegado</button>
+      <pre className="max-h-96 overflow-auto rounded-md border border-stone-800 bg-stone-950 p-3 text-xs text-stone-300">{stateJson}</pre>
+    </section>
+  );
+}
+
+function ResetDialog({ onConfirm }: { onConfirm: () => void }) {
+  return (
+    <AlertDialog.Root>
+      <AlertDialog.Trigger asChild>
+        <button className="danger-button" type="button"><RotateCcw size={16} /> Resetear partida</button>
+      </AlertDialog.Trigger>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="fixed inset-0 z-40 bg-black/70" />
+        <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-md border border-stone-700 bg-stone-950 p-5 shadow-xl">
+          <AlertDialog.Title className="text-xl font-black text-stone-50">Resetear partida</AlertDialog.Title>
+          <AlertDialog.Description className="text-sm text-pretty text-stone-400">
+            Esto reemplaza la partida guardada por los datos de ejemplo iniciales.
+          </AlertDialog.Description>
+          <div className="flex justify-end gap-2">
+            <AlertDialog.Cancel className="mini-button">Cancelar</AlertDialog.Cancel>
+            <AlertDialog.Action className="danger-button" onClick={onConfirm}>Resetear</AlertDialog.Action>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
   );
 }

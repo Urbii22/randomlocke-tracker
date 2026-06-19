@@ -1,4 +1,5 @@
 import { pokemonStatusLabels } from "@/lib/game";
+import { cn } from "@/lib/cn";
 import type { PokemonStatus, RouteStatus } from "@/types/randomlocke";
 
 const pokemonStyles: Record<PokemonStatus, string> = {
@@ -42,7 +43,7 @@ export function StatusBadge(props: StatusBadgeProps) {
     props.kind === "pokemon" ? pokemonStyles[props.status] : routeStyles[props.status];
 
   return (
-    <span className={`inline-flex items-center rounded border px-2 py-1 text-xs font-semibold ${className}`}>
+    <span className={cn("inline-flex items-center rounded-sm border px-2 py-1 text-xs font-semibold", className)}>
       {label}
     </span>
   );

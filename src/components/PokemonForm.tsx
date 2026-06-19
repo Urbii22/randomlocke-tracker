@@ -51,11 +51,11 @@ export function PokemonForm({ editing, onSubmit, onCancelEdit }: PokemonFormProp
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border border-zinc-800 bg-zinc-950/90 p-4">
+    <form onSubmit={handleSubmit} className="rounded-md border border-stone-800 bg-stone-900 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-black text-zinc-50">{editing ? "Editar Pokémon" : "Añadir Pokémon"}</h2>
+        <h2 className="text-lg font-black text-balance text-stone-50">{editing ? "Editar Pokémon" : "Añadir Pokémon"}</h2>
         {editing ? (
-          <button type="button" onClick={onCancelEdit} className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-300 hover:bg-zinc-900">
+          <button type="button" onClick={onCancelEdit} className="rounded-md border border-stone-700 px-3 py-2 text-sm font-semibold text-stone-300 hover:bg-stone-950">
             Cancelar edición
           </button>
         ) : null}
@@ -89,7 +89,7 @@ export function PokemonForm({ editing, onSubmit, onCancelEdit }: PokemonFormProp
         <Field label="Causa muerte"><input value={draft.deathCause} onChange={(event) => updateField("deathCause", event.target.value)} /></Field>
         <Field label="Notas"><input value={draft.notes} onChange={(event) => updateField("notes", event.target.value)} /></Field>
       </div>
-      <button type="submit" className="mt-4 rounded-md bg-cyan-300 px-4 py-2 text-sm font-black text-zinc-950 hover:bg-cyan-200">
+      <button type="submit" className="mt-4 rounded-md bg-amber-300 px-4 py-2 text-sm font-black text-stone-950 hover:bg-amber-200">
         {editing ? "Guardar cambios" : "Añadir al tracker"}
       </button>
     </form>
@@ -98,7 +98,7 @@ export function PokemonForm({ editing, onSubmit, onCancelEdit }: PokemonFormProp
 
 function Field({ label, children }: { label: string; children: React.ReactElement }) {
   return (
-    <label className="grid gap-1 text-sm font-semibold text-zinc-300">
+    <label className="grid gap-1 text-sm font-semibold text-stone-300">
       {label}
       {children}
     </label>
