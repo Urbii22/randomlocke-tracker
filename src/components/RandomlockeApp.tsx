@@ -23,14 +23,17 @@ import { useLocalStorageGameState } from "@/hooks/useLocalStorageGameState";
 import { cn } from "@/lib/cn";
 import {
   calculateDashboardSummary,
+  isNormalCaptureLimitReached,
   pokemonStatusLabels,
   updatePokemonStatus,
+  upsertRoute,
   upsertPokemon,
 } from "@/lib/game";
 import { serializeGameState } from "@/lib/storage";
 import type { Battle, Pokemon, PokemonStatus, Route } from "@/types/randomlocke";
 import { MetricCard } from "./MetricCard";
 import { PokemonEditorPanel } from "./PokemonForm";
+import { RouteEditorPanel } from "./RouteForm";
 import { StatusBadge } from "./StatusBadge";
 
 type View = "dashboard" | "pokemon" | "routes" | "dead" | "settings";
@@ -47,6 +50,8 @@ export function RandomlockeApp() {
   const [view, setView] = useState<View>("dashboard");
   const [editing, setEditing] = useState<Pokemon | undefined>();
   const [isPokemonPanelOpen, setIsPokemonPanelOpen] = useState(false);
+  const [editingRoute, setEditingRoute] = useState<Route | undefined>();
+  const [isRoutePanelOpen, setIsRoutePanelOpen] = useState(false);
   const [filter, setFilter] = useState<PokemonStatus | "all">("all");
   const [importText, setImportText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,6 +70,11 @@ export function RandomlockeApp() {
   function savePokemon(pokemon: Pokemon) {
     game.setState((state) => upsertPokemon(state, pokemon));
     setEditing(undefined);
+  }
+
+  function saveRoute(route: Route) {
+    game.setState((state) => upsertRoute(state, route));
+    setEditingRoute(undefined);
   }
 
   function exportJsonFile() {
@@ -176,7 +186,33 @@ export function RandomlockeApp() {
               />
             </>
           ) : null}
-          {view === "routes" ? <RoutesTable pokemon={game.state.pokemon} routes={game.state.routes} /> : null}
+          {view === "routes" ? (
+            <>
+              <RoutesTable
+                pokemon={game.state.pokemon}
+                routes={game.state.routes}
+                onAdd={() => {
+                  setEditingRoute(undefined);
+                  setIsRoutePanelOpen(true);
+                }}
+                onEdit={(route) => {
+                  setEditingRoute(route);
+                  setIsRoutePanelOpen(true);
+                }}
+              />
+              <RouteEditorPanel
+                open={isRoutePanelOpen}
+                onOpenChange={(open) => {
+                  setIsRoutePanelOpen(open);
+                  if (!open) setEditingRoute(undefined);
+                }}
+                editing={editingRoute}
+                pokemon={game.state.pokemon}
+                onSubmit={saveRoute}
+                onCancel={() => setEditingRoute(undefined)}
+              />
+            </>
+          ) : null}
           {view === "dead" ? <Graveyard pokemon={game.state.pokemon} /> : null}
           {view === "settings" ? (
             <SettingsPanel
@@ -367,22 +403,44 @@ function PokemonTable({ pokemon, filter, onFilterChange, onAdd, onEdit, onStatus
   );
 }
 
-function RoutesTable({ pokemon, routes }: { pokemon: Pokemon[]; routes: Route[] }) {
+function RoutesTable({
+  pokemon,
+  routes,
+  onAdd,
+  onEdit,
+}: {
+  pokemon: Pokemon[];
+  routes: Route[];
+  onAdd: () => void;
+  onEdit: (route: Route) => void;
+}) {
   const byId = new Map(pokemon.map((entry) => [entry.id, entry]));
   const nameFor = (id: string) => byId.get(id)?.nickname ?? "-";
   return (
     <section className="rounded-md border border-stone-800 bg-stone-900 p-4">
-      <h2 className="text-xl font-black text-balance text-stone-50">Rutas y capturas</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-black text-balance text-stone-50">Rutas y capturas</h2>
+        <button type="button" onClick={onAdd} className="action-button">
+          <Plus size={16} aria-hidden="true" />
+          Crear ruta
+        </button>
+      </div>
       <div className="mt-4 overflow-x-auto">
         <table className="data-table">
-          <thead><tr><th>Ruta</th><th>Captura 1</th><th>Captura 2</th><th>Estado</th><th>Notas</th></tr></thead>
+          <thead><tr><th>Ruta</th><th>Captura 1</th><th>Captura 2</th><th>Estado</th><th>Límite</th><th>Notas</th></tr></thead>
           <tbody>
             {routes.map((route) => (
               <tr key={route.id}>
-                <td className="font-black text-stone-50">{route.name}</td>
+                <td>
+                  <button type="button" onClick={() => onEdit(route)} className="text-left">
+                    <span className="block font-black text-stone-50">{route.name}</span>
+                    <span className="text-sm text-stone-500">Editar ruta</span>
+                  </button>
+                </td>
                 <td>{nameFor(route.capture1PokemonId)}</td>
                 <td>{nameFor(route.capture2PokemonId)}</td>
                 <td><StatusBadge kind="route" status={route.status} /></td>
+                <td><CaptureLimitBadge route={route} /></td>
                 <td className="max-w-md text-pretty text-stone-400">{route.notes || "-"}</td>
               </tr>
             ))}
@@ -390,6 +448,31 @@ function RoutesTable({ pokemon, routes }: { pokemon: Pokemon[]; routes: Route[] 
         </table>
       </div>
     </section>
+  );
+}
+
+function CaptureLimitBadge({ route }: { route: Route }) {
+  if (route.status === "shiny_extra") {
+    return (
+      <span className="inline-flex rounded-sm border border-fuchsia-300/50 bg-fuchsia-400/15 px-2 py-1 text-xs font-semibold text-fuchsia-100">
+        Shiny extra permitido
+      </span>
+    );
+  }
+
+  if (isNormalCaptureLimitReached(route)) {
+    return (
+      <span className="inline-flex rounded-sm border border-amber-300/50 bg-amber-300/15 px-2 py-1 text-xs font-semibold text-amber-100">
+        2/2 normales
+      </span>
+    );
+  }
+
+  const used = Number(Boolean(route.capture1PokemonId)) + Number(Boolean(route.capture2PokemonId));
+  return (
+    <span className="inline-flex rounded-sm border border-stone-700 bg-stone-950 px-2 py-1 text-xs font-semibold text-stone-300">
+      {used}/2 normales
+    </span>
   );
 }
 

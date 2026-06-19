@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   calculateDashboardSummary,
   createInitialGameState,
+  createRouteDraft,
   getNextBattle,
+  isNormalCaptureLimitReached,
+  upsertRoute,
+  validateRouteDraft,
   validatePokemonDraft,
 } from "./game";
 
@@ -83,5 +87,46 @@ describe("Randomlocke game state", () => {
     });
 
     expect(errors).toContain("Un Pokémon no puede tener más de 4 movimientos.");
+  });
+
+  it("validates and creates editable route drafts", () => {
+    expect(createRouteDraft()).toMatchObject({
+      name: "",
+      capture1PokemonId: "",
+      capture2PokemonId: "",
+      status: "pending",
+      notes: "",
+    });
+
+    expect(validateRouteDraft(createRouteDraft())).toContain("El nombre de la ruta es obligatorio.");
+  });
+
+  it("detects the two normal captures limit while allowing shiny extra status", () => {
+    const completedRoute = {
+      id: "route-test",
+      name: "Ruta Test",
+      capture1PokemonId: "pkm-a",
+      capture2PokemonId: "pkm-b",
+      status: "completed" as const,
+      notes: "",
+    };
+
+    expect(isNormalCaptureLimitReached(completedRoute)).toBe(true);
+    expect(isNormalCaptureLimitReached({ ...completedRoute, status: "shiny_extra" })).toBe(false);
+  });
+
+  it("upserts routes into game state", () => {
+    const state = createInitialGameState();
+    const next = upsertRoute(state, {
+      id: "route-22",
+      name: "Ruta 22",
+      capture1PokemonId: "",
+      capture2PokemonId: "",
+      status: "pending",
+      notes: "Nueva zona",
+    });
+
+    expect(next.routes[0]).toMatchObject({ id: "route-22", name: "Ruta 22" });
+    expect(next.updatedAt).not.toBe(state.updatedAt);
   });
 });

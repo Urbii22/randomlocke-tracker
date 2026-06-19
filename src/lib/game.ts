@@ -7,6 +7,8 @@ import type {
   Pokemon,
   PokemonDraft,
   PokemonStatus,
+  Route,
+  RouteDraft,
 } from "@/types/randomlocke";
 
 export const TEAM_SIZE = 6;
@@ -66,6 +68,16 @@ export function createPokemonDraft(): PokemonDraft {
   };
 }
 
+export function createRouteDraft(): RouteDraft {
+  return {
+    name: "",
+    capture1PokemonId: "",
+    capture2PokemonId: "",
+    status: "pending",
+    notes: "",
+  };
+}
+
 export function validatePokemonDraft(draft: PokemonDraft): string[] {
   const errors: string[] = [];
 
@@ -92,6 +104,24 @@ export function validatePokemonDraft(draft: PokemonDraft): string[] {
   return errors;
 }
 
+export function validateRouteDraft(draft: RouteDraft): string[] {
+  const errors: string[] = [];
+
+  if (!draft.name.trim()) {
+    errors.push("El nombre de la ruta es obligatorio.");
+  }
+
+  if (
+    draft.capture1PokemonId &&
+    draft.capture2PokemonId &&
+    draft.capture1PokemonId === draft.capture2PokemonId
+  ) {
+    errors.push("La captura 1 y la captura 2 no pueden ser el mismo Pokémon.");
+  }
+
+  return errors;
+}
+
 export function upsertPokemon(state: GameState, pokemon: Pokemon): GameState {
   const exists = state.pokemon.some((entry) => entry.id === pokemon.id);
   const nextPokemon = exists
@@ -99,6 +129,23 @@ export function upsertPokemon(state: GameState, pokemon: Pokemon): GameState {
     : [pokemon, ...state.pokemon];
 
   return { ...state, pokemon: nextPokemon, updatedAt: new Date().toISOString() };
+}
+
+export function upsertRoute(state: GameState, route: Route): GameState {
+  const exists = state.routes.some((entry) => entry.id === route.id);
+  const nextRoutes = exists
+    ? state.routes.map((entry) => (entry.id === route.id ? route : entry))
+    : [route, ...state.routes];
+
+  return { ...state, routes: nextRoutes, updatedAt: new Date().toISOString() };
+}
+
+export function isNormalCaptureLimitReached(route: Route): boolean {
+  return Boolean(
+    route.capture1PokemonId &&
+      route.capture2PokemonId &&
+      route.status !== "shiny_extra",
+  );
 }
 
 export function updatePokemonStatus(

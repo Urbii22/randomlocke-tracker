@@ -44,6 +44,8 @@ export type Route = {
   notes: string;
 };
 
+export type RouteDraft = Omit<Route, "id">;
+
 export type Battle = {
   id: string;
   name: string;
