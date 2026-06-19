@@ -9,6 +9,7 @@ import {
   Gauge,
   HeartPulse,
   Map as MapIcon,
+  Plus,
   RotateCcw,
   Settings,
   Shield,
@@ -29,7 +30,7 @@ import {
 import { serializeGameState } from "@/lib/storage";
 import type { Battle, Pokemon, PokemonStatus, Route } from "@/types/randomlocke";
 import { MetricCard } from "./MetricCard";
-import { PokemonForm } from "./PokemonForm";
+import { PokemonEditorPanel } from "./PokemonForm";
 import { StatusBadge } from "./StatusBadge";
 
 type View = "dashboard" | "pokemon" | "routes" | "dead" | "settings";
@@ -45,6 +46,7 @@ const navItems: { view: View; label: string; icon: typeof Gauge }[] = [
 export function RandomlockeApp() {
   const [view, setView] = useState<View>("dashboard");
   const [editing, setEditing] = useState<Pokemon | undefined>();
+  const [isPokemonPanelOpen, setIsPokemonPanelOpen] = useState(false);
   const [filter, setFilter] = useState<PokemonStatus | "all">("all");
   const [importText, setImportText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -148,8 +150,30 @@ export function RandomlockeApp() {
           ) : null}
           {view === "pokemon" ? (
             <>
-              <PokemonForm key={editing?.id ?? "new"} editing={editing} onSubmit={savePokemon} onCancelEdit={() => setEditing(undefined)} />
-              <PokemonTable pokemon={filteredPokemon} filter={filter} onFilterChange={setFilter} onEdit={setEditing} onStatusChange={setPokemonStatus} />
+              <PokemonTable
+                pokemon={filteredPokemon}
+                filter={filter}
+                onFilterChange={setFilter}
+                onAdd={() => {
+                  setEditing(undefined);
+                  setIsPokemonPanelOpen(true);
+                }}
+                onEdit={(pokemon) => {
+                  setEditing(pokemon);
+                  setIsPokemonPanelOpen(true);
+                }}
+                onStatusChange={setPokemonStatus}
+              />
+              <PokemonEditorPanel
+                open={isPokemonPanelOpen}
+                onOpenChange={(open) => {
+                  setIsPokemonPanelOpen(open);
+                  if (!open) setEditing(undefined);
+                }}
+                editing={editing}
+                onSubmit={savePokemon}
+                onCancel={() => setEditing(undefined)}
+              />
             </>
           ) : null}
           {view === "routes" ? <RoutesTable pokemon={game.state.pokemon} routes={game.state.routes} /> : null}
@@ -297,10 +321,11 @@ function BattleCard({ title, battle, icon: Icon }: { title: string; battle?: Bat
   );
 }
 
-function PokemonTable({ pokemon, filter, onFilterChange, onEdit, onStatusChange }: {
+function PokemonTable({ pokemon, filter, onFilterChange, onAdd, onEdit, onStatusChange }: {
   pokemon: Pokemon[];
   filter: PokemonStatus | "all";
   onFilterChange: (status: PokemonStatus | "all") => void;
+  onAdd: () => void;
   onEdit: (pokemon: Pokemon) => void;
   onStatusChange: (pokemonId: string, status: PokemonStatus) => void;
 }) {
@@ -309,10 +334,16 @@ function PokemonTable({ pokemon, filter, onFilterChange, onEdit, onStatusChange 
     <section className="rounded-md border border-stone-800 bg-stone-900 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-black text-balance text-stone-50">Pokémon registrados</h2>
-        <select value={filter} onChange={(event) => onFilterChange(event.target.value as PokemonStatus | "all")} className="rounded-md border border-stone-700 bg-stone-950 px-3 py-2 text-sm font-semibold text-stone-100">
-          <option value="all">Todos</option>
-          {statuses.map((status) => <option key={status} value={status}>{pokemonStatusLabels[status]}</option>)}
-        </select>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onAdd} className="action-button">
+            <Plus size={16} aria-hidden="true" />
+            Añadir Pokémon
+          </button>
+          <select value={filter} onChange={(event) => onFilterChange(event.target.value as PokemonStatus | "all")} className="rounded-md border border-stone-700 bg-stone-950 px-3 py-2 text-sm font-semibold text-stone-100">
+            <option value="all">Todos</option>
+            {statuses.map((status) => <option key={status} value={status}>{pokemonStatusLabels[status]}</option>)}
+          </select>
+        </div>
       </div>
       <div className="mt-4 overflow-x-auto">
         <table className="data-table">

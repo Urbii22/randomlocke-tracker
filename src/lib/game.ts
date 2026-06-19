@@ -85,6 +85,10 @@ export function validatePokemonDraft(draft: PokemonDraft): string[] {
     errors.push("El valor debe estar entre 0 y 10.");
   }
 
+  if (draft.moves.length > 4) {
+    errors.push("Un Pokémon no puede tener más de 4 movimientos.");
+  }
+
   return errors;
 }
 

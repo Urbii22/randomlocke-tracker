@@ -63,4 +63,25 @@ describe("Randomlocke game state", () => {
       ]),
     );
   });
+
+  it("rejects pokemon drafts with more than four moves", () => {
+    const errors = validatePokemonDraft({
+      species: "Lapras",
+      nickname: "Ferry",
+      level: 32,
+      types: ["Agua", "Hielo"],
+      ability: "Absorbe agua",
+      moves: ["Surf", "Canto", "Rayo hielo", "Protección", "Danza lluvia"],
+      item: "",
+      status: "box",
+      role: "Tanque especial",
+      value: 8,
+      notes: "",
+      routeCaught: "Ruta 12",
+      deathCause: "",
+      deathLocation: "",
+    });
+
+    expect(errors).toContain("Un Pokémon no puede tener más de 4 movimientos.");
+  });
 });
