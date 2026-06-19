@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useLocalStorageGameState } from "@/hooks/useLocalStorageGameState";
+import { getTeamCombatProfile, type PokemonType } from "@/lib/combat";
 import { cn } from "@/lib/cn";
 import {
   calculateDashboardSummary,
@@ -50,10 +51,11 @@ import { PokemonEditorPanel } from "./PokemonForm";
 import { RouteEditorPanel } from "./RouteForm";
 import { StatusBadge } from "./StatusBadge";
 
-type View = "dashboard" | "pokemon" | "routes" | "inventory" | "dead" | "settings";
+type View = "dashboard" | "combat" | "pokemon" | "routes" | "inventory" | "dead" | "settings";
 
 const navItems: { view: View; label: string; icon: typeof Gauge }[] = [
   { view: "dashboard", label: "Dashboard", icon: Gauge },
+  { view: "combat", label: "Combate", icon: Swords },
   { view: "pokemon", label: "Pokémon", icon: Shield },
   { view: "routes", label: "Rutas", icon: MapIcon },
   { view: "inventory", label: "Bolsa", icon: Package },
@@ -75,6 +77,10 @@ export function RandomlockeApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const game = useLocalStorageGameState();
   const summary = useMemo(() => calculateDashboardSummary(game.state), [game.state]);
+  const combatProfile = useMemo(
+    () => getTeamCombatProfile(game.state.pokemon),
+    [game.state.pokemon],
+  );
 
   const filteredPokemon = useMemo(() => {
     if (filter === "all") return game.state.pokemon;
@@ -186,6 +192,27 @@ export function RandomlockeApp() {
           {view === "dashboard" ? (
             <Dashboard pokemon={game.state.pokemon} battles={game.state.battles} summary={summary} />
           ) : null}
+          {view === "combat" ? (
+            <>
+              <CombatHub
+                profile={combatProfile}
+                onEditPokemon={(pokemon) => {
+                  setEditing(pokemon);
+                  setIsPokemonPanelOpen(true);
+                }}
+              />
+              <PokemonEditorPanel
+                open={isPokemonPanelOpen}
+                onOpenChange={(open) => {
+                  setIsPokemonPanelOpen(open);
+                  if (!open) setEditing(undefined);
+                }}
+                editing={editing}
+                onSubmit={savePokemon}
+                onCancel={() => setEditing(undefined)}
+              />
+            </>
+          ) : null}
           {view === "pokemon" ? (
             <>
               <PokemonTable
@@ -290,6 +317,7 @@ export function RandomlockeApp() {
 }
 
 function navCount(view: View, pokemon: Pokemon[], routes: Route[], inventory: InventoryItem[]) {
+  if (view === "combat") return pokemon.filter((entry) => entry.status === "alive").length;
   if (view === "pokemon") return pokemon.length;
   if (view === "routes") return routes.length;
   if (view === "inventory") return inventory.length;
@@ -303,6 +331,162 @@ function SideStat({ label, value }: { label: string; value: string | number }) {
       <p className="text-xs font-semibold uppercase text-stone-500">{label}</p>
       <p className="font-mono text-xl font-black tabular-nums text-stone-50">{value}</p>
     </div>
+  );
+}
+
+function CombatHub({
+  profile,
+  onEditPokemon,
+}: {
+  profile: ReturnType<typeof getTeamCombatProfile>;
+  onEditPokemon: (pokemon: Pokemon) => void;
+}) {
+  return (
+    <section className="grid gap-4">
+      <div className="rounded-md border border-stone-800 bg-stone-900 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-black text-balance text-stone-50">Hub de combate</h2>
+            <p className="mt-1 text-sm text-pretty text-stone-400">
+              Vista táctica del equipo activo: tipos, ataques reconocidos y matchups defensivos.
+            </p>
+          </div>
+          <span className="rounded-sm border border-stone-700 px-2 py-1 font-mono text-xs font-bold tabular-nums text-stone-300">
+            {profile.members.length}/6 activos
+          </span>
+        </div>
+
+        {profile.members.length === 0 ? (
+          <div className="mt-4 rounded-md border border-stone-800 bg-stone-950 p-5">
+            <p className="font-semibold text-stone-100">No hay Pokémon en el equipo.</p>
+            <p className="mt-1 text-sm text-pretty text-stone-400">
+              Mete un Pokémon al equipo para generar la referencia de combate.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="grid gap-3 md:grid-cols-2">
+              {profile.members.map((member) => (
+                <article key={member.pokemon.id} className="rounded-md border border-stone-800 bg-stone-950 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-black text-stone-50">{member.pokemon.nickname}</h3>
+                      <p className="text-sm text-stone-400">
+                        {member.pokemon.species} · Nv. {member.pokemon.level}
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => onEditPokemon(member.pokemon)} className="mini-button">
+                      Editar
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {member.pokemon.types.map((type) => (
+                      <TypeChip key={type} type={type} />
+                    ))}
+                  </div>
+
+                  <div className="mt-4 grid gap-3">
+                    <CombatBlock title="Ataques">
+                      {member.moveTypes.map((move) => (
+                        <span key={move.move} className="inline-flex rounded-sm border border-stone-700 px-2 py-1 text-xs font-semibold text-stone-200">
+                          {move.move}
+                          {move.type ? <span className="ml-2 text-amber-200">{move.type}</span> : null}
+                        </span>
+                      ))}
+                    </CombatBlock>
+                    <CombatBlock title="Débil a">
+                      <MultiplierList rows={member.defensiveProfile.weaknesses} />
+                    </CombatBlock>
+                    <CombatBlock title="Resiste / inmune">
+                      <MultiplierList rows={[...member.defensiveProfile.immunities, ...member.defensiveProfile.resistances]} />
+                    </CombatBlock>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <aside className="rounded-md border border-stone-800 bg-stone-950 p-4">
+              <h3 className="font-black text-stone-50">Cobertura ofensiva actual</h3>
+              <p className="mt-1 text-sm text-pretty text-stone-400">
+                Tipos detectados por los ataques registrados.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {profile.offensiveTypes.length > 0 ? (
+                  profile.offensiveTypes.map((type) => <TypeChip key={type} type={type} />)
+                ) : (
+                  <span className="text-sm text-stone-400">Sin ataques tipados reconocidos.</span>
+                )}
+              </div>
+            </aside>
+          </div>
+        )}
+      </div>
+
+      <TeamDefenseTable rows={profile.defenseRows} />
+    </section>
+  );
+}
+
+function CombatBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase text-stone-500">{title}</p>
+      <div className="mt-2 flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+function MultiplierList({ rows }: { rows: { type: PokemonType; multiplier: number }[] }) {
+  if (rows.length === 0) {
+    return <span className="text-sm text-stone-500">-</span>;
+  }
+
+  return rows.map((row) => (
+    <span key={row.type} className="inline-flex rounded-sm border border-stone-700 px-2 py-1 text-xs font-semibold text-stone-200">
+      {row.type} <span className="ml-1 font-mono tabular-nums text-amber-200">x{row.multiplier}</span>
+    </span>
+  ));
+}
+
+function TypeChip({ type }: { type: string }) {
+  return (
+    <span className="inline-flex rounded-sm border border-amber-300/40 bg-amber-300/10 px-2 py-1 text-xs font-black text-amber-100">
+      {type}
+    </span>
+  );
+}
+
+function TeamDefenseTable({ rows }: { rows: ReturnType<typeof getTeamCombatProfile>["defenseRows"] }) {
+  return (
+    <section className="rounded-md border border-stone-800 bg-stone-900 p-4">
+      <h2 className="text-xl font-black text-balance text-stone-50">Tabla defensiva del equipo</h2>
+      <p className="mt-1 text-sm text-pretty text-stone-400">
+        Para cada tipo atacante, quién sufre, quién aguanta y quién entra gratis.
+      </p>
+      <div className="mt-4 overflow-x-auto">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Tipo rival</th>
+              <th>Débiles</th>
+              <th>Resisten</th>
+              <th>Inmunes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.type}>
+                <td className="font-black text-stone-50">{row.type}</td>
+                <td>{row.weakTo.join(", ") || "-"}</td>
+                <td>{row.resists.join(", ") || "-"}</td>
+                <td>{row.immune.join(", ") || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
