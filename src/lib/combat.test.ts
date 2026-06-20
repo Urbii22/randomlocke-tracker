@@ -11,6 +11,11 @@ describe("combat helpers", () => {
     expect(getMoveType("Cola Dragón")).toBe("Dragón");
     expect(getMoveType("Avalancha")).toBe("Roca");
     expect(getMoveType("Psicocambio")).toBe("Psíquico");
+    expect(getMoveType("Doble Patada")).toBe("Lucha");
+    expect(getMoveType("Clavo Cañón")).toBe("Normal");
+    expect(getMoveType("Inversión")).toBe("Lucha");
+    expect(getMoveType("Voto Agua")).toBe("Agua");
+    expect(getMoveType("Ataque Fulgor")).toBe("Eléctrico");
   });
 
   it("calculates Aron defensive profile from Acero/Roca", () => {
@@ -37,11 +42,23 @@ describe("combat helpers", () => {
     const state = createInitialGameState();
     const profile = getTeamCombatProfile(state.pokemon);
 
-    expect(profile.members).toHaveLength(1);
+    expect(profile.members).toHaveLength(3);
     expect(profile.members[0].pokemon.nickname).toBe("Piedrita");
-    expect(profile.offensiveTypes).toEqual(["Dragón", "Roca", "Psíquico"]);
+    expect(profile.members[1].pokemon.nickname).toBe("Patadon");
+    expect(profile.members[2].pokemon.nickname).toBe("LA RACHA");
+    expect(profile.offensiveTypes).toEqual([
+      "Dragón",
+      "Roca",
+      "Psíquico",
+      "Lucha",
+      "Normal",
+      "Agua",
+      "Eléctrico",
+    ]);
     expect(profile.defenseRows.find((row) => row.type === "Tierra")?.weakTo).toEqual([
       "Piedrita",
+      "Patadon",
+      "LA RACHA",
     ]);
   });
 });

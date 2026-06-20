@@ -14,7 +14,7 @@ import {
 } from "./game";
 
 describe("Randomlocke game state", () => {
-  it("creates an initial game state with Piedrita as the only adventure pokemon", () => {
+  it("creates an initial game state with the current adventure team", () => {
     const state = createInitialGameState();
 
     expect(state.levelCaps).toHaveLength(8);
@@ -22,7 +22,12 @@ describe("Randomlocke game state", () => {
     expect(state.battles.some((battle) => battle.type === "friend")).toBe(true);
     expect(state.routes).toHaveLength(1);
     expect(state.inventory).toEqual([]);
-    expect(state.pokemon).toHaveLength(1);
+    expect(state.pokemon).toHaveLength(3);
+    expect(state.pokemon.map((pokemon) => pokemon.nickname)).toEqual([
+      "Piedrita",
+      "Patadon",
+      "LA RACHA",
+    ]);
     expect(state.pokemon[0]).toMatchObject({
       species: "Aron",
       nickname: "Piedrita",
@@ -33,13 +38,32 @@ describe("Randomlocke game state", () => {
       status: "alive",
       routeCaught: "Inicial",
     });
+    expect(state.pokemon[1]).toMatchObject({
+      species: "Dedenne",
+      nickname: "Patadon",
+      level: 9,
+      types: ["Eléctrico", "Hada"],
+      ability: "Intimidación",
+      moves: ["Doble Patada", "Paso Dimensional", "Clavo Cañón"],
+      status: "alive",
+    });
+    expect(state.pokemon[2]).toMatchObject({
+      species: "Quilava",
+      nickname: "LA RACHA",
+      level: 9,
+      types: ["Fuego"],
+      ability: "Agallas",
+      moves: ["Inversión", "Pulso Cura", "Voto Agua", "Ataque Fulgor"],
+      item: "Cinta Elegida",
+      status: "alive",
+    });
   });
 
   it("summarizes team, box, dead and next progression targets", () => {
     const state = createInitialGameState();
     const summary = calculateDashboardSummary(state);
 
-    expect(summary.teamCount).toBe(1);
+    expect(summary.teamCount).toBe(3);
     expect(summary.boxCount).toBe(0);
     expect(summary.deadCount).toBe(0);
     expect(summary.currentLevelCap).toBe(14);

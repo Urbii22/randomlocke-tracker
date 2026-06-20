@@ -75,6 +75,16 @@ const moveTypeByName: Record<string, PokemonType> = {
   "cola dragón": "Dragón",
   avalancha: "Roca",
   psicocambio: "Psíquico",
+  "doble patada": "Lucha",
+  "paso dimensional": "Psíquico",
+  "clavo canon": "Normal",
+  "clavo cañon": "Normal",
+  "clavo cañón": "Normal",
+  inversion: "Lucha",
+  inversión: "Lucha",
+  "pulso cura": "Psíquico",
+  "voto agua": "Agua",
+  "ataque fulgor": "Eléctrico",
 };
 
 const attackChart: Record<PokemonType, Partial<Record<PokemonType, number>>> = {
