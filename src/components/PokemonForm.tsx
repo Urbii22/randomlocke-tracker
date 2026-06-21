@@ -1,8 +1,8 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Archive, Skull, UserPlus, X } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { Archive, Plus, Skull, Trash2, UserPlus, X } from "lucide-react";
+import { FormEvent, KeyboardEvent, useState } from "react";
 import { cn } from "@/lib/cn";
 import { createPokemonDraft, parseListInput, validatePokemonDraft } from "@/lib/game";
 import type { Pokemon, PokemonDraft, PokemonStatus } from "@/types/randomlocke";
@@ -83,7 +83,8 @@ export function PokemonEditorPanel({
 export function PokemonForm({ editing, onSubmit, onCancel }: PokemonFormProps) {
   const [draft, setDraft] = useState<PokemonDraft>(() => toDraft(editing));
   const [typesInput, setTypesInput] = useState(() => editing?.types.join(", ") ?? "");
-  const [movesInput, setMovesInput] = useState(() => editing?.moves.join(", ") ?? "");
+  const [moves, setMoves] = useState<string[]>(() => editing?.moves ?? []);
+  const [moveInput, setMoveInput] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
 
   function updateField<K extends keyof PokemonDraft>(key: K, value: PokemonDraft[K]) {
@@ -100,7 +101,7 @@ export function PokemonForm({ editing, onSubmit, onCancel }: PokemonFormProps) {
       ...draft,
       status,
       types: parseListInput(typesInput),
-      moves: parseListInput(movesInput),
+      moves: moves.map((move) => move.trim()).filter(Boolean),
     };
     const nextErrors = validatePokemonDraft(nextDraft);
 
@@ -114,9 +115,32 @@ export function PokemonForm({ editing, onSubmit, onCancel }: PokemonFormProps) {
     if (!editing) {
       setDraft(createPokemonDraft());
       setTypesInput("");
-      setMovesInput("");
+      setMoves([]);
+      setMoveInput("");
     }
     setErrors([]);
+  }
+
+  function addMove() {
+    const nextMove = moveInput.trim();
+    if (!nextMove || moves.length >= 4) return;
+    setMoves((current) => [...current, nextMove]);
+    setMoveInput("");
+  }
+
+  function updateMove(index: number, value: string) {
+    setMoves((current) => current.map((move, moveIndex) => (moveIndex === index ? value : move)));
+  }
+
+  function removeMove(index: number) {
+    setMoves((current) => current.filter((_, moveIndex) => moveIndex !== index));
+  }
+
+  function handleMoveInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addMove();
+    }
   }
 
   return (
@@ -176,13 +200,6 @@ export function PokemonForm({ editing, onSubmit, onCancel }: PokemonFormProps) {
             onChange={(event) => updateField("ability", event.target.value)}
           />
         </Field>
-        <Field label="Movimientos">
-          <input
-            value={movesInput}
-            onChange={(event) => setMovesInput(event.target.value)}
-            placeholder="Surf, Mordisco, Protección"
-          />
-        </Field>
         <Field label="Objeto">
           <input value={draft.item} onChange={(event) => updateField("item", event.target.value)} />
         </Field>
@@ -213,6 +230,61 @@ export function PokemonForm({ editing, onSubmit, onCancel }: PokemonFormProps) {
           className="min-h-28 resize-y"
         />
       </Field>
+
+      <div className="grid gap-3 rounded-md border border-stone-800 bg-stone-900 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-black text-stone-100">Movimientos</p>
+            <p className="mt-0.5 text-xs font-semibold text-stone-500">{moves.length}/4 registrados</p>
+          </div>
+          <div className="flex min-w-0 flex-1 justify-end gap-2 sm:min-w-80">
+            <input
+              value={moveInput}
+              onChange={(event) => setMoveInput(event.target.value)}
+              onKeyDown={handleMoveInputKeyDown}
+              placeholder="Nuevo ataque"
+              className="min-w-0 flex-1"
+              disabled={moves.length >= 4}
+            />
+            <button
+              type="button"
+              onClick={addMove}
+              disabled={!moveInput.trim() || moves.length >= 4}
+              className="action-button disabled:cursor-not-allowed disabled:bg-stone-700 disabled:text-stone-400"
+            >
+              <Plus size={16} aria-hidden="true" />
+              Añadir
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          {moves.length > 0 ? (
+            moves.map((move, index) => (
+              <div key={`${move}-${index}`} className="grid grid-cols-[1fr_auto] gap-2">
+                <input
+                  value={move}
+                  onChange={(event) => updateMove(index, event.target.value)}
+                  aria-label={`Movimiento ${index + 1}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeMove(index)}
+                  className="danger-button min-h-10 px-3"
+                  aria-label={`Eliminar ${move || `movimiento ${index + 1}`}`}
+                  title="Eliminar movimiento"
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-md border border-stone-800 bg-stone-950 p-3 text-sm font-semibold text-stone-500">
+              Sin movimientos registrados.
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="grid gap-3 rounded-md border border-stone-800 bg-stone-900 p-3">
         <p className="text-sm font-black text-stone-100">Acciones rápidas</p>
