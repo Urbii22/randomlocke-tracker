@@ -1,7 +1,7 @@
 import { createInitialGameState } from "@/lib/game";
 import type { GameState } from "@/types/randomlocke";
 
-export const STORAGE_KEY = "randomlocke-tracker-state-v3-team-start";
+export const STORAGE_KEY = "randomlocke-tracker-state-v4-current-team";
 
 export function parseStoredGameState(raw: string | null): GameState {
   if (!raw) {

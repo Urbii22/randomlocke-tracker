@@ -85,6 +85,23 @@ const moveTypeByName: Record<string, PokemonType> = {
   "pulso cura": "Psíquico",
   "voto agua": "Agua",
   "ataque fulgor": "Eléctrico",
+  "sombra vil": "Fantasma",
+  trueno: "Eléctrico",
+  "ataque oseo": "Tierra",
+  "ataque óseo": "Tierra",
+  lluevehojas: "Planta",
+  "rayo gelido": "Hielo",
+  "rayo gélido": "Hielo",
+  resplandor: "Psíquico",
+  "aire afilado": "Volador",
+  "rayo carga": "Eléctrico",
+  "eco voz": "Normal",
+  "frio polar": "Hielo",
+  "frío polar": "Hielo",
+  "veneno x": "Veneno",
+  "llama azul": "Fuego",
+  "pistola agua": "Agua",
+  "ala de acero": "Acero",
 };
 
 const attackChart: Record<PokemonType, Partial<Record<PokemonType, number>>> = {

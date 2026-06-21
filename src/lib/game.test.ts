@@ -21,41 +21,57 @@ describe("Randomlocke game state", () => {
     expect(state.levelCaps[0]).toMatchObject({ gym: 1, leader: "Viola", cap: 14 });
     expect(state.battles.some((battle) => battle.type === "friend")).toBe(true);
     expect(state.routes).toHaveLength(1);
-    expect(state.inventory).toEqual([]);
-    expect(state.pokemon).toHaveLength(3);
+    expect(state.inventory).toHaveLength(5);
+    expect(state.pokemon).toHaveLength(6);
     expect(state.pokemon.map((pokemon) => pokemon.nickname)).toEqual([
       "Piedrita",
       "Patadon",
+      "PEPE",
       "LA RACHA",
+      "PITUFO",
+      "PIUPIU",
     ]);
     expect(state.pokemon[0]).toMatchObject({
       species: "Aron",
       nickname: "Piedrita",
-      level: 5,
+      level: 17,
       types: ["Acero", "Roca"],
-      ability: "Tabla Terror",
-      moves: ["Cola Dragón", "Avalancha", "Psicocambio"],
+      ability: "Veleta",
+      moves: ["Cola Dragón", "Avalancha", "Psicocambio", "Sombra Vil"],
+      item: "Tabla Terror",
       status: "alive",
-      routeCaught: "Inicial",
     });
     expect(state.pokemon[1]).toMatchObject({
       species: "Dedenne",
       nickname: "Patadon",
-      level: 9,
+      level: 17,
       types: ["Eléctrico", "Hada"],
       ability: "Intimidación",
-      moves: ["Doble Patada", "Paso Dimensional", "Clavo Cañón"],
+      moves: ["Doble Patada", "Paso Dimensional", "Trueno", "Ataque Óseo"],
       status: "alive",
     });
     expect(state.pokemon[2]).toMatchObject({
+      species: "Venusaur",
+      nickname: "PEPE",
+      level: 19,
+      types: ["Planta", "Veneno"],
+      ability: "Resquicio",
+      item: "Venusaurita",
+      status: "alive",
+    });
+    expect(state.pokemon[3]).toMatchObject({
       species: "Quilava",
       nickname: "LA RACHA",
-      level: 9,
+      level: 18,
       types: ["Fuego"],
       ability: "Agallas",
-      moves: ["Inversión", "Pulso Cura", "Voto Agua", "Ataque Fulgor"],
+      moves: ["Inversión", "Rayo Carga", "Voto Agua", "Ataque Fulgor"],
       item: "Cinta Elegida",
       status: "alive",
+    });
+    expect(state.inventory.find((item) => item.holderPokemonId === "pkm-pitufo")).toMatchObject({
+      name: "Lustresfera",
+      status: "equipped",
     });
   });
 
@@ -63,18 +79,18 @@ describe("Randomlocke game state", () => {
     const state = createInitialGameState();
     const summary = calculateDashboardSummary(state);
 
-    expect(summary.teamCount).toBe(3);
+    expect(summary.teamCount).toBe(6);
     expect(summary.boxCount).toBe(0);
     expect(summary.deadCount).toBe(0);
-    expect(summary.currentLevelCap).toBe(14);
-    expect(summary.nextGym?.name).toBe("Gimnasio de Ciudad Novarte");
+    expect(summary.currentLevelCap).toBe(30);
+    expect(summary.nextGym?.name).toBe("Gimnasio de Ciudad Relieve");
     expect(summary.nextFriendBattle?.name).toBe("Combate contra amigos 1");
   });
 
   it("returns the first incomplete battle of a requested type", () => {
     const state = createInitialGameState();
 
-    expect(getNextBattle(state.battles, "gym")?.levelCap).toBe(14);
+    expect(getNextBattle(state.battles, "gym")?.levelCap).toBe(30);
     expect(getNextBattle(state.battles, "friend")?.type).toBe("friend");
   });
 
@@ -200,7 +216,7 @@ describe("Randomlocke game state", () => {
       notes: "Pendiente de revisar compatibilidad.",
     });
 
-    expect(next.inventory).toHaveLength(1);
+    expect(next.inventory).toHaveLength(6);
     expect(next.inventory[0]).toMatchObject({ id: "item-tm01", category: "tm" });
     expect(next.updatedAt).not.toBe(state.updatedAt);
   });
