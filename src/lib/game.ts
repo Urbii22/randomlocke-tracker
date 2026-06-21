@@ -1,4 +1,5 @@
 import { seedGameState } from "@/data/seed";
+import { getMoveType } from "@/lib/combat";
 import type {
   Battle,
   BattleType,
@@ -8,6 +9,7 @@ import type {
   InventoryItemDraft,
   Pokemon,
   PokemonDraft,
+  PokemonMove,
   PokemonStatus,
   Route,
   RouteDraft,
@@ -115,6 +117,10 @@ export function validatePokemonDraft(draft: PokemonDraft): string[] {
     errors.push("Un Pokémon no puede tener más de 4 movimientos.");
   }
 
+  if (draft.moves.some((move) => !move.name.trim())) {
+    errors.push("Todos los movimientos deben tener nombre.");
+  }
+
   return errors;
 }
 
@@ -204,4 +210,14 @@ export function parseListInput(value: string): string[] {
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
+
+export function createMoveDraft(name = ""): PokemonMove {
+  return {
+    name,
+    type: name ? (getMoveType(name) ?? "") : "",
+    power: null,
+    accuracy: null,
+    category: "unknown",
+  };
 }

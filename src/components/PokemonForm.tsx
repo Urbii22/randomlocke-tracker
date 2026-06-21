@@ -4,8 +4,14 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Archive, Plus, Skull, Trash2, UserPlus, X } from "lucide-react";
 import { FormEvent, KeyboardEvent, useState } from "react";
 import { cn } from "@/lib/cn";
-import { createPokemonDraft, parseListInput, validatePokemonDraft } from "@/lib/game";
-import type { Pokemon, PokemonDraft, PokemonStatus } from "@/types/randomlocke";
+import { createMoveDraft, createPokemonDraft, parseListInput, validatePokemonDraft } from "@/lib/game";
+import type {
+  MoveCategory,
+  Pokemon,
+  PokemonDraft,
+  PokemonMove,
+  PokemonStatus,
+} from "@/types/randomlocke";
 
 const statusOptions: PokemonStatus[] = [
   "alive",
@@ -15,6 +21,13 @@ const statusOptions: PokemonStatus[] = [
   "sacrificable",
   "forbidden",
   "shiny_extra",
+];
+
+const moveCategoryOptions: { value: MoveCategory; label: string }[] = [
+  { value: "unknown", label: "?" },
+  { value: "physical", label: "Físico" },
+  { value: "special", label: "Especial" },
+  { value: "status", label: "Estado" },
 ];
 
 type PokemonFormProps = {
@@ -83,7 +96,7 @@ export function PokemonEditorPanel({
 export function PokemonForm({ editing, onSubmit, onCancel }: PokemonFormProps) {
   const [draft, setDraft] = useState<PokemonDraft>(() => toDraft(editing));
   const [typesInput, setTypesInput] = useState(() => editing?.types.join(", ") ?? "");
-  const [moves, setMoves] = useState<string[]>(() => editing?.moves ?? []);
+  const [moves, setMoves] = useState<PokemonMove[]>(() => editing?.moves ?? []);
   const [moveInput, setMoveInput] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -101,7 +114,9 @@ export function PokemonForm({ editing, onSubmit, onCancel }: PokemonFormProps) {
       ...draft,
       status,
       types: parseListInput(typesInput),
-      moves: moves.map((move) => move.trim()).filter(Boolean),
+      moves: moves
+        .map((move) => ({ ...move, name: move.name.trim(), type: move.type.trim() }))
+        .filter((move) => move.name),
     };
     const nextErrors = validatePokemonDraft(nextDraft);
 
@@ -124,12 +139,20 @@ export function PokemonForm({ editing, onSubmit, onCancel }: PokemonFormProps) {
   function addMove() {
     const nextMove = moveInput.trim();
     if (!nextMove || moves.length >= 4) return;
-    setMoves((current) => [...current, nextMove]);
+    setMoves((current) => [...current, createMoveDraft(nextMove)]);
     setMoveInput("");
   }
 
-  function updateMove(index: number, value: string) {
-    setMoves((current) => current.map((move, moveIndex) => (moveIndex === index ? value : move)));
+  function updateMove<K extends keyof PokemonMove>(
+    index: number,
+    key: K,
+    value: PokemonMove[K],
+  ) {
+    setMoves((current) =>
+      current.map((move, moveIndex) =>
+        moveIndex === index ? { ...move, [key]: value } : move,
+      ),
+    );
   }
 
   function removeMove(index: number) {
@@ -261,22 +284,13 @@ export function PokemonForm({ editing, onSubmit, onCancel }: PokemonFormProps) {
         <div className="grid gap-2">
           {moves.length > 0 ? (
             moves.map((move, index) => (
-              <div key={`${move}-${index}`} className="grid grid-cols-[1fr_auto] gap-2">
-                <input
-                  value={move}
-                  onChange={(event) => updateMove(index, event.target.value)}
-                  aria-label={`Movimiento ${index + 1}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => removeMove(index)}
-                  className="danger-button min-h-10 px-3"
-                  aria-label={`Eliminar ${move || `movimiento ${index + 1}`}`}
-                  title="Eliminar movimiento"
-                >
-                  <Trash2 size={16} aria-hidden="true" />
-                </button>
-              </div>
+              <MoveEditorRow
+                key={`${move.name}-${index}`}
+                move={move}
+                index={index}
+                onUpdate={updateMove}
+                onRemove={removeMove}
+              />
             ))
           ) : (
             <div className="rounded-md border border-stone-800 bg-stone-950 p-3 text-sm font-semibold text-stone-500">
@@ -354,6 +368,87 @@ function StatusAction({
       <Icon size={16} aria-hidden="true" />
       {label}
     </button>
+  );
+}
+
+function MoveEditorRow({
+  move,
+  index,
+  onUpdate,
+  onRemove,
+}: {
+  move: PokemonMove;
+  index: number;
+  onUpdate: <K extends keyof PokemonMove>(
+    index: number,
+    key: K,
+    value: PokemonMove[K],
+  ) => void;
+  onRemove: (index: number) => void;
+}) {
+  return (
+    <div className="grid gap-2 rounded-md border border-stone-800 bg-stone-950 p-2">
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        <input
+          value={move.name}
+          onChange={(event) => onUpdate(index, "name", event.target.value)}
+          aria-label={`Movimiento ${index + 1}`}
+          placeholder="Nombre"
+        />
+        <button
+          type="button"
+          onClick={() => onRemove(index)}
+          className="danger-button min-h-10 px-3"
+          aria-label={`Eliminar ${move.name || `movimiento ${index + 1}`}`}
+          title="Eliminar movimiento"
+        >
+          <Trash2 size={16} aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-[1fr_6rem_6rem_7rem]">
+        <input
+          value={move.type}
+          onChange={(event) => onUpdate(index, "type", event.target.value)}
+          aria-label={`Tipo de ${move.name || `movimiento ${index + 1}`}`}
+          placeholder="Tipo"
+        />
+        <input
+          type="number"
+          min={0}
+          value={move.power ?? ""}
+          onChange={(event) =>
+            onUpdate(index, "power", event.target.value ? Number(event.target.value) : null)
+          }
+          aria-label={`Potencia de ${move.name || `movimiento ${index + 1}`}`}
+          placeholder="Pot."
+        />
+        <input
+          type="number"
+          min={0}
+          max={100}
+          value={move.accuracy ?? ""}
+          onChange={(event) =>
+            onUpdate(index, "accuracy", event.target.value ? Number(event.target.value) : null)
+          }
+          aria-label={`Precisión de ${move.name || `movimiento ${index + 1}`}`}
+          placeholder="Prec."
+        />
+        <select
+          value={move.category}
+          onChange={(event) =>
+            onUpdate(index, "category", event.target.value as MoveCategory)
+          }
+          aria-label={`Categoría de ${move.name || `movimiento ${index + 1}`}`}
+        >
+          {moveCategoryOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
   );
 }
 

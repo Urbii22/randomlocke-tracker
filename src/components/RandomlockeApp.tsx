@@ -628,7 +628,7 @@ function CombatRosterRow({
 
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-2">
         {member.moveTypes.map((move) => (
-          <MovePill key={move.move} move={move.move} type={move.type} />
+          <MovePill key={move.move.name} move={move.move} type={move.type} />
         ))}
       </div>
 
@@ -697,12 +697,44 @@ function CompactTypeList({
   ));
 }
 
-function MovePill({ move, type }: { move: string; type?: PokemonType }) {
+function MovePill({
+  move,
+  type,
+}: {
+  move: Pokemon["moves"][number];
+  type?: PokemonType;
+}) {
   return (
     <div className="flex h-7 min-w-0 items-center justify-between gap-1.5 rounded-sm border border-stone-800 bg-stone-900 px-1.5">
-      <span className="min-w-0 truncate text-[0.68rem] font-bold text-stone-200">{move}</span>
-      {type ? <TypeBadge type={type} compact iconOnly /> : <span className="text-xs text-stone-600">?</span>}
+      <span className="min-w-0 truncate text-[0.68rem] font-bold text-stone-200">{move.name}</span>
+      <span className="flex shrink-0 items-center gap-1">
+        <MoveCategoryBadge category={move.category} />
+        {move.power ? <span className="font-mono text-[0.62rem] font-black text-amber-100">{move.power}</span> : null}
+        {move.accuracy ? <span className="font-mono text-[0.62rem] font-black text-stone-400">{move.accuracy}%</span> : null}
+        {type ? <TypeBadge type={type} compact iconOnly /> : <span className="text-xs text-stone-600">?</span>}
+      </span>
     </div>
+  );
+}
+
+function MoveCategoryBadge({ category }: { category: Pokemon["moves"][number]["category"] }) {
+  if (category === "unknown") return null;
+
+  const label = {
+    physical: "F",
+    special: "E",
+    status: "St",
+  }[category];
+  const className = {
+    physical: "border-orange-400/40 bg-orange-500/10 text-orange-100",
+    special: "border-cyan-300/40 bg-cyan-500/10 text-cyan-100",
+    status: "border-violet-300/40 bg-violet-500/10 text-violet-100",
+  }[category];
+
+  return (
+    <span className={cn("rounded-sm border px-1 font-mono text-[0.6rem] font-black", className)}>
+      {label}
+    </span>
   );
 }
 
@@ -913,7 +945,9 @@ function RosterCard({ pokemon }: { pokemon: Pokemon }) {
         ))}
       </div>
       <p className="mt-3 text-sm font-semibold text-pretty text-stone-200">{pokemon.role || "Sin rol asignado"}</p>
-      <p className="mt-2 line-clamp-2 text-xs text-stone-500">{pokemon.moves.join(" · ") || "Sin movimientos"}</p>
+      <p className="mt-2 line-clamp-2 text-xs text-stone-500">
+        {pokemon.moves.map((move) => move.name).join(" · ") || "Sin movimientos"}
+      </p>
     </article>
   );
 }

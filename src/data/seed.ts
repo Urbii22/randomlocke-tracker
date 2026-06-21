@@ -1,6 +1,16 @@
-import type { GameState, InventoryItem, Pokemon } from "@/types/randomlocke";
+import type { GameState, InventoryItem, Pokemon, PokemonMove } from "@/types/randomlocke";
 
 const updatedAt = "2026-06-21T00:00:00.000Z";
+
+function move(
+  name: string,
+  type: string,
+  power: number | null = null,
+  accuracy: number | null = null,
+  category: PokemonMove["category"] = "unknown",
+): PokemonMove {
+  return { name, type, power, accuracy, category };
+}
 
 const currentTeam: Pokemon[] = [
   {
@@ -10,7 +20,12 @@ const currentTeam: Pokemon[] = [
     level: 17,
     types: ["Acero", "Roca"],
     ability: "Veleta",
-    moves: ["Cola Drag\u00f3n", "Avalancha", "Psicocambio", "Sombra Vil"],
+    moves: [
+      move("Cola Drag\u00f3n", "Drag\u00f3n"),
+      move("Avalancha", "Roca"),
+      move("Psicocambio", "Ps\u00edquico"),
+      move("Sombra Vil", "Fantasma"),
+    ],
     item: "Tabla Terror",
     status: "alive",
     role: "Tanque f\u00edsico, utility y cobertura f\u00edsica",
@@ -28,7 +43,12 @@ const currentTeam: Pokemon[] = [
     level: 17,
     types: ["El\u00e9ctrico", "Hada"],
     ability: "Intimidaci\u00f3n",
-    moves: ["Doble Patada", "Paso Dimensional", "Trueno", "Ataque \u00d3seo"],
+    moves: [
+      move("Doble Patada", "Lucha"),
+      move("Paso Dimensional", "Ps\u00edquico"),
+      move("Trueno", "El\u00e9ctrico"),
+      move("Ataque \u00d3seo", "Tierra"),
+    ],
     item: "",
     status: "alive",
     role: "Lead seguro, utility y especial r\u00e1pido",
@@ -46,7 +66,12 @@ const currentTeam: Pokemon[] = [
     level: 19,
     types: ["Planta", "Veneno"],
     ability: "Resquicio",
-    moves: ["Lluevehojas", "Rayo G\u00e9lido", "Resplandor", "Aire Afilado"],
+    moves: [
+      move("Lluevehojas", "Planta"),
+      move("Rayo G\u00e9lido", "Hielo"),
+      move("Resplandor", "Ps\u00edquico"),
+      move("Aire Afilado", "Volador"),
+    ],
     item: "Venusaurita",
     status: "alive",
     role: "Tanque mixto, win condition y cobertura especial",
@@ -64,7 +89,12 @@ const currentTeam: Pokemon[] = [
     level: 18,
     types: ["Fuego"],
     ability: "Agallas",
-    moves: ["Inversi\u00f3n", "Rayo Carga", "Voto Agua", "Ataque Fulgor"],
+    moves: [
+      move("Inversi\u00f3n", "Lucha"),
+      move("Rayo Carga", "El\u00e9ctrico"),
+      move("Voto Agua", "Agua"),
+      move("Ataque Fulgor", "El\u00e9ctrico"),
+    ],
     item: "Cinta Elegida",
     status: "alive",
     role: "Wallbreaker mixto y revenge killer situacional",
@@ -82,7 +112,12 @@ const currentTeam: Pokemon[] = [
     level: 17,
     types: ["Drag\u00f3n", "Volador"],
     ability: "Llovizna",
-    moves: ["Paso Dimensional", "Eco Voz", "Fr\u00edo Polar", "Aire Afilado"],
+    moves: [
+      move("Paso Dimensional", "Ps\u00edquico"),
+      move("Eco Voz", "Normal"),
+      move("Fr\u00edo Polar", "Hielo"),
+      move("Aire Afilado", "Volador"),
+    ],
     item: "Lustresfera",
     status: "alive",
     role: "Sweeper f\u00edsico, setter de lluvia y pivot ofensivo",
@@ -100,7 +135,12 @@ const currentTeam: Pokemon[] = [
     level: 17,
     types: ["Agua"],
     ability: "Energ\u00eda Pura",
-    moves: ["Veneno X", "Llama Azul", "Pistola Agua", "Ala de Acero"],
+    moves: [
+      move("Veneno X", "Veneno", 70, 100, "physical"),
+      move("Llama Azul", "Fuego"),
+      move("Pistola Agua", "Agua"),
+      move("Ala de Acero", "Acero"),
+    ],
     item: "Ra\u00edz Grande",
     status: "alive",
     role: "Sweeper f\u00edsico, tanque mixto y cobertura",

@@ -1,4 +1,4 @@
-import type { Pokemon } from "@/types/randomlocke";
+import type { Pokemon, PokemonMove } from "@/types/randomlocke";
 
 export const pokemonTypes = [
   "Normal",
@@ -30,7 +30,7 @@ export type TypeMultiplier = {
 
 export type CombatMember = {
   pokemon: Pokemon;
-  moveTypes: { move: string; type?: PokemonType }[];
+  moveTypes: { move: PokemonMove; type?: PokemonType }[];
   defensiveProfile: {
     weaknesses: TypeMultiplier[];
     resistances: TypeMultiplier[];
@@ -133,6 +133,10 @@ export function getMoveType(move: string): PokemonType | undefined {
   return moveTypeByName[move.trim().toLowerCase()];
 }
 
+export function getPokemonMoveType(move: PokemonMove): PokemonType | undefined {
+  return normalizePokemonType(move.type) ?? getMoveType(move.name);
+}
+
 export function getDefensiveMultiplier(
   attackerType: PokemonType,
   defenderTypes: PokemonType[],
@@ -165,7 +169,7 @@ export function getTeamCombatProfile(pokemon: Pokemon[]) {
   const team = pokemon.filter((entry) => entry.status === "alive");
   const members: CombatMember[] = team.map((entry) => ({
     pokemon: entry,
-    moveTypes: entry.moves.map((move) => ({ move, type: getMoveType(move) })),
+    moveTypes: entry.moves.map((move) => ({ move, type: getPokemonMoveType(move) })),
     defensiveProfile: getPokemonDefensiveProfile(entry),
   }));
 

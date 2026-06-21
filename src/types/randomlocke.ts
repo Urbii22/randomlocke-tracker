@@ -28,6 +28,16 @@ export type InventoryCategory =
 
 export type InventoryStatus = "available" | "equipped" | "used" | "sold" | "reserved";
 
+export type MoveCategory = "physical" | "special" | "status" | "unknown";
+
+export type PokemonMove = {
+  name: string;
+  type: string;
+  power: number | null;
+  accuracy: number | null;
+  category: MoveCategory;
+};
+
 export type Pokemon = {
   id: string;
   species: string;
@@ -35,7 +45,7 @@ export type Pokemon = {
   level: number;
   types: string[];
   ability: string;
-  moves: string[];
+  moves: PokemonMove[];
   item: string;
   status: PokemonStatus;
   role: string;

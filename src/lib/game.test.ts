@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateDashboardSummary,
+  createMoveDraft,
   createInventoryItemDraft,
   createInitialGameState,
   createRouteDraft,
@@ -37,19 +38,30 @@ describe("Randomlocke game state", () => {
       level: 17,
       types: ["Acero", "Roca"],
       ability: "Veleta",
-      moves: ["Cola Dragón", "Avalancha", "Psicocambio", "Sombra Vil"],
       item: "Tabla Terror",
       status: "alive",
     });
+    expect(state.pokemon[0].moves.map((move) => move.name)).toEqual([
+      "Cola Dragón",
+      "Avalancha",
+      "Psicocambio",
+      "Sombra Vil",
+    ]);
+    expect(state.pokemon[0].moves[0]).toMatchObject({ type: "Dragón", power: null });
     expect(state.pokemon[1]).toMatchObject({
       species: "Dedenne",
       nickname: "Patadon",
       level: 17,
       types: ["Eléctrico", "Hada"],
       ability: "Intimidación",
-      moves: ["Doble Patada", "Paso Dimensional", "Trueno", "Ataque Óseo"],
       status: "alive",
     });
+    expect(state.pokemon[1].moves.map((move) => move.name)).toEqual([
+      "Doble Patada",
+      "Paso Dimensional",
+      "Trueno",
+      "Ataque Óseo",
+    ]);
     expect(state.pokemon[2]).toMatchObject({
       species: "Venusaur",
       nickname: "PEPE",
@@ -65,10 +77,15 @@ describe("Randomlocke game state", () => {
       level: 18,
       types: ["Fuego"],
       ability: "Agallas",
-      moves: ["Inversión", "Rayo Carga", "Voto Agua", "Ataque Fulgor"],
       item: "Cinta Elegida",
       status: "alive",
     });
+    expect(state.pokemon[3].moves.map((move) => move.name)).toEqual([
+      "Inversión",
+      "Rayo Carga",
+      "Voto Agua",
+      "Ataque Fulgor",
+    ]);
     expect(state.inventory.find((item) => item.holderPokemonId === "pkm-pitufo")).toMatchObject({
       name: "Lustresfera",
       status: "equipped",
@@ -129,7 +146,13 @@ describe("Randomlocke game state", () => {
       level: 32,
       types: ["Agua", "Hielo"],
       ability: "Absorbe agua",
-      moves: ["Surf", "Canto", "Rayo hielo", "Protección", "Danza lluvia"],
+      moves: [
+        createMoveDraft("Surf"),
+        createMoveDraft("Canto"),
+        createMoveDraft("Rayo hielo"),
+        createMoveDraft("Protección"),
+        createMoveDraft("Danza lluvia"),
+      ],
       item: "",
       status: "box",
       role: "Tanque especial",
