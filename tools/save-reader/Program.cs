@@ -113,6 +113,7 @@ internal static class SaveSnapshotReader
     {
         var speciesName = GetSpeciesName(pokemon);
         var nickname = string.IsNullOrWhiteSpace(pokemon.Nickname) ? speciesName : pokemon.Nickname;
+        var stats = pokemon.GetStats(pokemon.PersonalInfo);
 
         return new SavePokemon(
             source,
@@ -126,14 +127,14 @@ internal static class SaveSnapshotReader
             GetAbilityName(pokemon),
             GetItemName(pokemon),
             new SaveStats(
-                pokemon.Stat_HPMax,
-                pokemon.Stat_ATK,
-                pokemon.Stat_DEF,
-                pokemon.Stat_SPA,
-                pokemon.Stat_SPD,
-                pokemon.Stat_SPE
+                stats[0],
+                stats[1],
+                stats[2],
+                stats[4],
+                stats[5],
+                stats[3]
             ),
-            GetMoves(pokemon)
+            GetMoves(pokemon, pokemon.Context)
         );
     }
 
@@ -172,21 +173,22 @@ internal static class SaveSnapshotReader
         return [TranslateType(type1, types), TranslateType(type2, types)];
     }
 
-    private static SaveMove[] GetMoves(PKM pokemon)
+    private static SaveMove[] GetMoves(PKM pokemon, EntityContext context)
     {
         return pokemon.Moves
             .Where(move => move != 0)
-            .Select(ToSaveMove)
+            .Select(move => ToSaveMove(move, context))
             .ToArray();
     }
 
-    private static SaveMove ToSaveMove(ushort moveId)
+    private static SaveMove ToSaveMove(ushort moveId, EntityContext context)
     {
         var moveName = moveId < GameInfo.Strings.Move.Count
             ? GameInfo.Strings.Move[moveId]
             : $"Move {moveId}";
+        var typeId = MoveInfo.GetType(moveId, context);
 
-        return new SaveMove(moveName, "", "unknown", null, null);
+        return new SaveMove(moveName, TranslateType(typeId, GameInfo.Strings.Types), "unknown", null, null);
     }
 
     private static SaveBagItem[] GetBag(SaveFile save)
