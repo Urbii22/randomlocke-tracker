@@ -22,6 +22,15 @@ describe("combat helpers", () => {
     expect(getMoveType("Aire Afilado")).toBe("Volador");
     expect(getMoveType("Veneno X")).toBe("Veneno");
     expect(getMoveType("Ala de Acero")).toBe("Acero");
+    expect(getMoveType("Leaf Storm")).toBe("Planta");
+    expect(getMoveType("Freeze Shock")).toBe("Hielo");
+    expect(getMoveType("Will-O-Wisp")).toBe("Fuego");
+    expect(getMoveType("Spacial Rend")).toBe("Dragón");
+    expect(getMoveType("Attack Order")).toBe("Bicho");
+    expect(getMoveType("Drill Run")).toBe("Tierra");
+    expect(getMoveType("Power Whip")).toBe("Planta");
+    expect(getMoveType("Blue Flare")).toBe("Fuego");
+    expect(getMoveType("Steel Wing")).toBe("Acero");
   });
 
   it("calculates Aron defensive profile from Acero/Roca", () => {

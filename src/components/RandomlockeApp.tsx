@@ -767,7 +767,7 @@ function MovePill({
         <MoveCategoryBadge category={move.category} />
         {move.power ? <span className="font-mono text-[0.62rem] font-black text-amber-100">{move.power}</span> : null}
         {move.accuracy ? <span className="font-mono text-[0.62rem] font-black text-stone-400">{move.accuracy}%</span> : null}
-        {type ? <TypeBadge type={type} compact iconOnly /> : <span className="text-xs text-stone-600">?</span>}
+        {type ? <TypeBadge type={type} compact /> : <span className="text-xs text-stone-600">?</span>}
       </span>
     </div>
   );
