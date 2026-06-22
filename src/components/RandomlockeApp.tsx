@@ -850,15 +850,15 @@ function CombatRosterRow({
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        {member.pokemon.types.map((type) => (
-          <TypeBadge key={type} type={type} compact />
+        {member.pokemon.types.map((type, index) => (
+          <TypeBadge key={`${type}-${index}`} type={type} compact />
         ))}
       </div>
 
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-2">
-        {member.moveTypes.map((move) => (
+        {member.moveTypes.map((move, index) => (
           <MovePill
-            key={move.move.name}
+            key={`${move.move.name || "move"}-${index}`}
             move={move.move}
             type={move.type}
             effectiveness={getMoveEffectivenessAgainstTypes(move.type, selectedTargetTypes)}
@@ -1102,8 +1102,8 @@ function DefenseBucket({
       <p className="mb-1 text-[0.65rem] font-black uppercase text-stone-600">{label}</p>
       <div className="flex min-h-7 flex-wrap gap-1.5">
         {names.length > 0 ? (
-          names.map((name) => (
-            <span key={name} className={cn("rounded-sm border px-2 py-1 text-xs font-bold", toneClass)}>
+          names.map((name, index) => (
+            <span key={`${name}-${index}`} className={cn("rounded-sm border px-2 py-1 text-xs font-bold", toneClass)}>
               {name}
             </span>
           ))
@@ -1207,8 +1207,8 @@ function RosterCard({ pokemon }: { pokemon: Pokemon }) {
         </span>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        {pokemon.types.map((type) => (
-          <span key={type} className="rounded-sm border border-stone-700 px-2 py-1 text-xs font-bold text-stone-300">
+        {pokemon.types.map((type, index) => (
+          <span key={`${type}-${index}`} className="rounded-sm border border-stone-700 px-2 py-1 text-xs font-bold text-stone-300">
             {type}
           </span>
         ))}
