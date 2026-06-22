@@ -124,7 +124,10 @@ const LEGENDARY_SPECIES = new Set(
 
 export function mergeSaveSnapshot(state: GameState, snapshot: SaveSnapshot): SaveSyncResult {
   const seen = [...snapshot.party, ...snapshot.boxes].map(normalizeSavePokemon);
+  const seenIdentities = new Set(seen.map(identityFor));
   const existingByIdentity = new Map(state.pokemon.map((pokemon) => [identityFor(pokemon), pokemon]));
+  const existingByUniqueNickname = getExistingByUniqueNickname(state.pokemon);
+  const existingBySaveLocation = getExistingBySaveLocation(state.pokemon);
   const usedIds = new Set(state.pokemon.map((pokemon) => pokemon.id));
   const seenIds = new Set<string>();
   let added = 0;
@@ -133,7 +136,15 @@ export function mergeSaveSnapshot(state: GameState, snapshot: SaveSnapshot): Sav
 
   const syncedPokemon = seen.map((savePokemon) => {
     const identity = identityFor(savePokemon);
-    const existing = existingByIdentity.get(identity);
+    const locationMatch = existingBySaveLocation.get(saveLocationKey(savePokemon));
+    const canUseLocationMatch =
+      locationMatch &&
+      (identityFor(locationMatch) === identity || !seenIdentities.has(identityFor(locationMatch)));
+    const matchedExisting =
+      existingByIdentity.get(identity) ??
+      existingByUniqueNickname.get(normalizeKey(savePokemon.nickname || savePokemon.species)) ??
+      (canUseLocationMatch ? locationMatch : undefined);
+    const existing = matchedExisting && !seenIds.has(matchedExisting.id) ? matchedExisting : undefined;
     const isLegendary = isLegendarySpecies(savePokemon.species);
     const status = getSyncedStatus(existing?.status, savePokemon.source, isLegendary);
     const id = existing?.id ?? createStablePokemonId(savePokemon, usedIds);
@@ -394,6 +405,58 @@ function createUniqueInventoryId(base: string, usedIds: Set<string>): string {
 
 function identityFor(pokemon: Pick<Pokemon, "nickname" | "species">): string {
   return `${normalizeKey(pokemon.nickname)}::${normalizeKey(pokemon.species)}`;
+}
+
+function getExistingByUniqueNickname(pokemon: Pokemon[]): Map<string, Pokemon> {
+  const counts = new Map<string, number>();
+  const byNickname = new Map<string, Pokemon>();
+
+  for (const entry of pokemon) {
+    const nickname = normalizeKey(entry.nickname || entry.species);
+    if (!nickname) continue;
+
+    counts.set(nickname, (counts.get(nickname) ?? 0) + 1);
+    byNickname.set(nickname, entry);
+  }
+
+  for (const [nickname, count] of counts) {
+    if (count > 1) {
+      byNickname.delete(nickname);
+    }
+  }
+
+  return byNickname;
+}
+
+function getExistingBySaveLocation(pokemon: Pokemon[]): Map<string, Pokemon> {
+  const byLocation = new Map<string, Pokemon>();
+
+  for (const entry of pokemon) {
+    const key = saveLocationKey(entry);
+    if (key) {
+      byLocation.set(key, entry);
+    }
+  }
+
+  return byLocation;
+}
+
+function saveLocationKey(
+  pokemon: Pick<Pokemon, "source" | "partySlot" | "box" | "slot"> | SavePokemon,
+): string {
+  if (pokemon.source === "party" && typeof pokemon.partySlot === "number") {
+    return `party:${pokemon.partySlot}`;
+  }
+
+  if (
+    pokemon.source === "box" &&
+    typeof pokemon.box === "number" &&
+    typeof pokemon.slot === "number"
+  ) {
+    return `box:${pokemon.box}:${pokemon.slot}`;
+  }
+
+  return "";
 }
 
 function normalizeKey(value: string): string {

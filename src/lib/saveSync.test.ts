@@ -140,6 +140,118 @@ describe("save sync", () => {
     });
   });
 
+  it("updates evolved party pokemon instead of duplicating the old species", () => {
+    const state = stateWithPepe({
+      species: "Ivysaur",
+      nickname: "PEPE",
+      partySlot: 0,
+      source: "party",
+    });
+
+    const result = mergeSaveSnapshot(state, snapshot());
+
+    expect(result.state.pokemon.filter((pokemon) => pokemon.nickname === "PEPE")).toHaveLength(1);
+    expect(result.state.pokemon.find((pokemon) => pokemon.id === "pkm-pepe")).toMatchObject({
+      species: "Venusaur",
+      nickname: "PEPE",
+      status: "alive",
+      partySlot: 0,
+    });
+    expect(result.report).toMatchObject({ added: 1, updated: 1 });
+  });
+
+  it("uses the save party slot as a fallback for unnamed evolutions", () => {
+    const state = stateWithPepe({
+      species: "Ivysaur",
+      nickname: "Ivysaur",
+      partySlot: 0,
+      source: "party",
+    });
+
+    const result = mergeSaveSnapshot(
+      state,
+      snapshot({
+        party: [
+          {
+            source: "party",
+            partySlot: 0,
+            species: "Venusaur",
+            nickname: "Venusaur",
+            level: 20,
+            types: ["Planta", "Veneno"],
+            ability: "Resquicio",
+            item: null,
+            moves: [],
+          },
+        ],
+        boxes: [],
+      }),
+    );
+
+    expect(result.state.pokemon).toHaveLength(1);
+    expect(result.state.pokemon[0]).toMatchObject({
+      id: "pkm-pepe",
+      species: "Venusaur",
+      nickname: "Venusaur",
+      partySlot: 0,
+    });
+    expect(result.report).toMatchObject({ added: 0, updated: 1 });
+  });
+
+  it("does not steal a moved pokemon when another save entry matches it exactly", () => {
+    const state = stateWithPepe({
+      species: "Ivysaur",
+      nickname: "Ivysaur",
+      partySlot: 0,
+      source: "party",
+    });
+
+    const result = mergeSaveSnapshot(
+      state,
+      snapshot({
+        party: [
+          {
+            source: "party",
+            partySlot: 0,
+            species: "Fletchling",
+            nickname: "Fletchling",
+            level: 8,
+            types: ["Normal", "Volador"],
+            ability: "Sacapecho",
+            item: null,
+            moves: [],
+          },
+        ],
+        boxes: [
+          {
+            source: "box",
+            box: 1,
+            slot: 1,
+            species: "Ivysaur",
+            nickname: "Ivysaur",
+            level: 20,
+            types: ["Planta", "Veneno"],
+            ability: "Resquicio",
+            item: null,
+            moves: [],
+          },
+        ],
+      }),
+    );
+
+    expect(result.state.pokemon.find((pokemon) => pokemon.id === "pkm-pepe")).toMatchObject({
+      species: "Ivysaur",
+      status: "box",
+      box: 1,
+      slot: 1,
+    });
+    expect(result.state.pokemon.find((pokemon) => pokemon.nickname === "Fletchling")).toMatchObject({
+      status: "alive",
+      partySlot: 0,
+    });
+    expect(result.report).toMatchObject({ added: 1, updated: 1 });
+  });
+
   it("marks legendary pokemon as forbidden", () => {
     const result = mergeSaveSnapshot(
       createInitialGameState(),
