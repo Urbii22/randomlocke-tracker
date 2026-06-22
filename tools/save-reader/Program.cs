@@ -1,0 +1,265 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using PKHeX.Core;
+
+var options = SaveReaderOptions.Parse(args);
+
+if (options is null)
+{
+    Console.Error.WriteLine("Usage: save-reader --save \"path\\to\\main\"");
+    Environment.Exit(2);
+    return;
+}
+
+if (!File.Exists(options.SavePath))
+{
+    Console.Error.WriteLine("Save file was not found.");
+    Environment.Exit(3);
+    return;
+}
+
+var tempPath = Path.Combine(Path.GetTempPath(), $"randomlocke-save-{Guid.NewGuid():N}.main");
+
+try
+{
+    File.Copy(options.SavePath, tempPath, overwrite: false);
+    var snapshot = SaveSnapshotReader.Read(tempPath);
+    Console.WriteLine(JsonSerializer.Serialize(snapshot, JsonOptions.Value));
+}
+catch (Exception ex)
+{
+    var errorSnapshot = new SaveSnapshot(
+        DateTimeOffset.UtcNow,
+        "Pokemon Y",
+        [],
+        [],
+        [$"No se pudo leer el save: {ex.GetType().Name}"]
+    );
+    Console.WriteLine(JsonSerializer.Serialize(errorSnapshot, JsonOptions.Value));
+    Environment.ExitCode = 1;
+}
+finally
+{
+    try
+    {
+        if (File.Exists(tempPath))
+            File.Delete(tempPath);
+    }
+    catch
+    {
+        // Best effort cleanup only; never touch the original save.
+    }
+}
+
+internal sealed record SaveReaderOptions(string SavePath)
+{
+    public static SaveReaderOptions? Parse(string[] args)
+    {
+        for (var i = 0; i < args.Length - 1; i++)
+        {
+            if (args[i] is "--save" or "-s")
+                return new SaveReaderOptions(args[i + 1]);
+        }
+
+        return null;
+    }
+}
+
+internal static class SaveSnapshotReader
+{
+    public static SaveSnapshot Read(string copiedSavePath)
+    {
+        var save = SaveUtil.GetSaveFile(copiedSavePath);
+        if (save is null)
+            throw new InvalidOperationException("PKHeX.Core did not recognize the save file.");
+
+        var party = new List<SavePokemon>();
+        var boxes = new List<SavePokemon>();
+
+        for (var slot = 0; slot < save.PartyCount; slot++)
+        {
+            var pokemon = save.GetPartySlotAtIndex(slot);
+            if (IsEmpty(pokemon))
+                continue;
+
+            party.Add(ToSavePokemon(pokemon, "party", partySlot: slot, box: null, slot: null));
+        }
+
+        for (var box = 0; box < save.BoxCount; box++)
+        {
+            for (var slot = 0; slot < save.BoxSlotCount; slot++)
+            {
+                var pokemon = save.GetBoxSlotAtIndex(box, slot);
+                if (IsEmpty(pokemon))
+                    continue;
+
+                boxes.Add(ToSavePokemon(pokemon, "box", partySlot: null, box: box + 1, slot: slot + 1));
+            }
+        }
+
+        return new SaveSnapshot(DateTimeOffset.UtcNow, "Pokemon Y", party, boxes, []);
+    }
+
+    private static bool IsEmpty(PKM pokemon) => pokemon.Species == 0;
+
+    private static SavePokemon ToSavePokemon(
+        PKM pokemon,
+        string source,
+        int? partySlot,
+        int? box,
+        int? slot
+    )
+    {
+        var speciesName = GetSpeciesName(pokemon);
+        var nickname = string.IsNullOrWhiteSpace(pokemon.Nickname) ? speciesName : pokemon.Nickname;
+
+        return new SavePokemon(
+            source,
+            partySlot,
+            box,
+            slot,
+            speciesName,
+            nickname,
+            pokemon.CurrentLevel,
+            GetTypes(pokemon),
+            GetAbilityName(pokemon),
+            GetItemName(pokemon),
+            new SaveStats(
+                pokemon.Stat_HPMax,
+                pokemon.Stat_ATK,
+                pokemon.Stat_DEF,
+                pokemon.Stat_SPA,
+                pokemon.Stat_SPD,
+                pokemon.Stat_SPE
+            ),
+            GetMoves(pokemon)
+        );
+    }
+
+    private static string GetSpeciesName(PKM pokemon)
+    {
+        var species = pokemon.Species;
+        var names = GameInfo.Strings.Species;
+        return species < names.Count ? names[species] : $"Species {species}";
+    }
+
+    private static string GetAbilityName(PKM pokemon)
+    {
+        var ability = pokemon.Ability;
+        var names = GameInfo.Strings.Ability;
+        return ability < names.Count ? names[ability] : $"Ability {ability}";
+    }
+
+    private static string? GetItemName(PKM pokemon)
+    {
+        if (pokemon.HeldItem == 0)
+            return null;
+
+        var names = GameInfo.Strings.Item;
+        return pokemon.HeldItem < names.Count ? names[pokemon.HeldItem] : $"Item {pokemon.HeldItem}";
+    }
+
+    private static string[] GetTypes(PKM pokemon)
+    {
+        var types = GameInfo.Strings.Types;
+        var type1 = (int)pokemon.PersonalInfo.Type1;
+        var type2 = (int)pokemon.PersonalInfo.Type2;
+
+        if (type1 == type2)
+            return [TranslateType(type1, types)];
+
+        return [TranslateType(type1, types), TranslateType(type2, types)];
+    }
+
+    private static SaveMove[] GetMoves(PKM pokemon)
+    {
+        return pokemon.Moves
+            .Where(move => move != 0)
+            .Select(ToSaveMove)
+            .ToArray();
+    }
+
+    private static SaveMove ToSaveMove(ushort moveId)
+    {
+        var moveName = moveId < GameInfo.Strings.Move.Count
+            ? GameInfo.Strings.Move[moveId]
+            : $"Move {moveId}";
+
+        return new SaveMove(moveName, "", "unknown", null, null);
+    }
+
+    private static string TranslateType(int typeId, IReadOnlyList<string> fallback)
+    {
+        return typeId switch
+        {
+            0 => "Normal",
+            1 => "Lucha",
+            2 => "Volador",
+            3 => "Veneno",
+            4 => "Tierra",
+            5 => "Roca",
+            6 => "Bicho",
+            7 => "Fantasma",
+            8 => "Acero",
+            9 => "Fuego",
+            10 => "Agua",
+            11 => "Planta",
+            12 => "Electrico",
+            13 => "Psiquico",
+            14 => "Hielo",
+            15 => "Dragon",
+            16 => "Siniestro",
+            17 => "Hada",
+            _ => typeId < fallback.Count ? fallback[typeId] : $"Type {typeId}",
+        };
+    }
+}
+
+internal sealed record SaveSnapshot(
+    DateTimeOffset ReadAt,
+    string Game,
+    IReadOnlyList<SavePokemon> Party,
+    IReadOnlyList<SavePokemon> Boxes,
+    IReadOnlyList<string> Errors
+);
+
+internal sealed record SavePokemon(
+    string Source,
+    int? PartySlot,
+    int? Box,
+    int? Slot,
+    string Species,
+    string Nickname,
+    int Level,
+    IReadOnlyList<string> Types,
+    string Ability,
+    string? Item,
+    SaveStats Stats,
+    IReadOnlyList<SaveMove> Moves
+);
+
+internal sealed record SaveStats(
+    int Hp,
+    int Attack,
+    int Defense,
+    int SpecialAttack,
+    int SpecialDefense,
+    int Speed
+);
+
+internal sealed record SaveMove(
+    string Name,
+    string Type,
+    string Category,
+    int? Power,
+    int? Accuracy
+);
+
+internal static class JsonOptions
+{
+    public static readonly JsonSerializerOptions Value = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false,
+    };
+}

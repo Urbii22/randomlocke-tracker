@@ -19,10 +19,14 @@
 
 # production
 /build
+tools/save-reader/bin/
+tools/save-reader/obj/
 
 # misc
 .DS_Store
 *.pem
+.tools/
+.dotnet/
 
 # debug
 npm-debug.log*

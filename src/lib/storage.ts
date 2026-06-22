@@ -19,6 +19,19 @@ export function parseStoredGameState(raw: string | null): GameState {
       battles: Array.isArray(parsed.battles) ? parsed.battles : fallback.battles,
       inventory: Array.isArray(parsed.inventory) ? parsed.inventory : fallback.inventory,
       levelCaps: Array.isArray(parsed.levelCaps) ? parsed.levelCaps : fallback.levelCaps,
+      settings:
+        parsed.settings && typeof parsed.settings === "object"
+          ? {
+              saveFilePath:
+                typeof parsed.settings.saveFilePath === "string"
+                  ? parsed.settings.saveFilePath
+                  : fallback.settings.saveFilePath,
+              lastSaveSyncAt:
+                typeof parsed.settings.lastSaveSyncAt === "string"
+                  ? parsed.settings.lastSaveSyncAt
+                  : undefined,
+            }
+          : fallback.settings,
       updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : fallback.updatedAt,
     };
   } catch {

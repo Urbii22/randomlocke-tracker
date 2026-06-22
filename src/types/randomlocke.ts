@@ -38,6 +38,17 @@ export type PokemonMove = {
   category: MoveCategory;
 };
 
+export type PokemonStats = {
+  hp: number;
+  attack: number;
+  defense: number;
+  specialAttack: number;
+  specialDefense: number;
+  speed: number;
+};
+
+export type PokemonSaveSource = "manual" | "party" | "box";
+
 export type Pokemon = {
   id: string;
   species: string;
@@ -47,6 +58,12 @@ export type Pokemon = {
   ability: string;
   moves: PokemonMove[];
   item: string;
+  stats?: PokemonStats;
+  source?: PokemonSaveSource;
+  partySlot?: number;
+  box?: number;
+  slot?: number;
+  lastSeenInSaveAt?: string;
   status: PokemonStatus;
   role: string;
   value: number;
@@ -95,12 +112,18 @@ export type LevelCap = {
   cap: number;
 };
 
+export type GameSettings = {
+  saveFilePath: string;
+  lastSaveSyncAt?: string;
+};
+
 export type GameState = {
   pokemon: Pokemon[];
   routes: Route[];
   battles: Battle[];
   inventory: InventoryItem[];
   levelCaps: LevelCap[];
+  settings: GameSettings;
   updatedAt: string;
 };
 

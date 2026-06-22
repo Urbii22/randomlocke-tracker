@@ -14,6 +14,7 @@ import {
   Gauge,
   Ghost,
   HeartPulse,
+  HardDrive,
   Leaf,
   Map as MapIcon,
   Moon,
@@ -21,6 +22,7 @@ import {
   Package,
   Plus,
   RotateCcw,
+  RefreshCw,
   Settings,
   Shield,
   Skull,
@@ -45,6 +47,7 @@ import {
   upsertRoute,
   upsertPokemon,
 } from "@/lib/game";
+import { mergeSaveSnapshot, type SaveSnapshot, type SaveSyncReport } from "@/lib/saveSync";
 import { serializeGameState } from "@/lib/storage";
 import type {
   Battle,
@@ -65,6 +68,10 @@ import { RouteEditorPanel } from "./RouteForm";
 import { StatusBadge } from "./StatusBadge";
 
 type View = "dashboard" | "combat" | "pokemon" | "routes" | "inventory" | "dead" | "settings";
+
+type SaveSyncApiResponse =
+  | { snapshot: SaveSnapshot }
+  | { error: string };
 
 const navItems: { view: View; label: string; icon: typeof Gauge }[] = [
   { view: "dashboard", label: "Dashboard", icon: Gauge },
@@ -183,6 +190,9 @@ export function RandomlockeApp() {
   const [filter, setFilter] = useState<PokemonStatus | "all">("all");
   const [inventoryFilter, setInventoryFilter] = useState<InventoryCategory | "all">("all");
   const [importText, setImportText] = useState("");
+  const [isSyncingSave, setIsSyncingSave] = useState(false);
+  const [saveSyncError, setSaveSyncError] = useState("");
+  const [saveSyncReport, setSaveSyncReport] = useState<SaveSyncReport | undefined>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const game = useLocalStorageGameState();
   const summary = useMemo(() => calculateDashboardSummary(game.state), [game.state]);
@@ -240,6 +250,46 @@ export function RandomlockeApp() {
   function resetGame() {
     game.reset();
     setEditing(undefined);
+    setSaveSyncReport(undefined);
+    setSaveSyncError("");
+  }
+
+  function updateSaveFilePath(saveFilePath: string) {
+    game.setState((state) => ({
+      ...state,
+      settings: {
+        ...state.settings,
+        saveFilePath,
+      },
+      updatedAt: new Date().toISOString(),
+    }));
+  }
+
+  async function syncFromSave() {
+    setIsSyncingSave(true);
+    setSaveSyncError("");
+
+    try {
+      const response = await fetch("/api/save/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ savePath: game.state.settings.saveFilePath }),
+      });
+      const payload = (await response.json()) as SaveSyncApiResponse;
+
+      if (!response.ok || "error" in payload) {
+        setSaveSyncError("error" in payload ? payload.error : "No se pudo sincronizar el save.");
+        return;
+      }
+
+      const result = mergeSaveSnapshot(game.state, payload.snapshot);
+      game.setState(result.state);
+      setSaveSyncReport(result.report);
+    } catch {
+      setSaveSyncError("No se pudo conectar con la API local de sincronizacion.");
+    } finally {
+      setIsSyncingSave(false);
+    }
   }
 
   return (
@@ -417,6 +467,12 @@ export function RandomlockeApp() {
               applyImport={() => game.importJson(importText)}
               resetGame={resetGame}
               stateJson={serializeGameState(game.state)}
+              saveFilePath={game.state.settings.saveFilePath}
+              onSaveFilePathChange={updateSaveFilePath}
+              onSyncFromSave={() => void syncFromSave()}
+              isSyncingSave={isSyncingSave}
+              saveSyncError={saveSyncError}
+              saveSyncReport={saveSyncReport}
             />
           ) : null}
         </main>
@@ -1213,6 +1269,12 @@ function SettingsPanel({
   applyImport,
   resetGame,
   stateJson,
+  saveFilePath,
+  onSaveFilePathChange,
+  onSyncFromSave,
+  isSyncingSave,
+  saveSyncError,
+  saveSyncReport,
 }: {
   exportJsonFile: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -1222,10 +1284,59 @@ function SettingsPanel({
   applyImport: () => void;
   resetGame: () => void;
   stateJson: string;
+  saveFilePath: string;
+  onSaveFilePathChange: (value: string) => void;
+  onSyncFromSave: () => void;
+  isSyncingSave: boolean;
+  saveSyncError: string;
+  saveSyncReport?: SaveSyncReport;
 }) {
   return (
     <section className="grid gap-4 rounded-md border border-stone-800 bg-stone-900 p-4">
       <h2 className="text-xl font-black text-balance text-stone-50">Ajustes</h2>
+
+      <section className="grid gap-3 rounded-md border border-amber-300/30 bg-stone-950 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-amber-200">
+              <HardDrive size={18} aria-hidden="true" />
+              <h3 className="text-sm font-black uppercase">Actualizar desde save</h3>
+            </div>
+            <p className="mt-1 text-sm text-pretty text-stone-400">
+              Lee una copia temporal del archivo main y fusiona equipo/caja sin tocar el save original.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="action-button"
+            onClick={onSyncFromSave}
+            disabled={isSyncingSave}
+            title="Actualizar desde save"
+          >
+            <RefreshCw size={16} aria-hidden="true" className={isSyncingSave ? "animate-spin" : ""} />
+            {isSyncingSave ? "Leyendo..." : "Actualizar desde save"}
+          </button>
+        </div>
+
+        <label className="grid gap-2 text-sm font-semibold text-stone-300">
+          Ruta del archivo main
+          <input
+            value={saveFilePath}
+            onChange={(event) => onSaveFilePathChange(event.target.value)}
+            placeholder="D:\\...\\title\\...\\data\\00000001\\main"
+            className="rounded-md border border-stone-700 bg-stone-900 px-3 py-2 font-mono text-sm text-stone-100 outline-none focus:border-amber-300"
+          />
+        </label>
+
+        {saveSyncError ? (
+          <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm font-semibold text-rose-100">
+            {saveSyncError}
+          </div>
+        ) : null}
+
+        {saveSyncReport ? <SaveSyncReportPanel report={saveSyncReport} /> : null}
+      </section>
+
       <div className="flex flex-wrap gap-3">
         <button className="action-button" onClick={exportJsonFile} type="button"><Download size={16} /> Exportar JSON</button>
         <button className="action-button" onClick={() => fileInputRef.current?.click()} type="button"><Upload size={16} /> Importar archivo</button>
@@ -1239,6 +1350,55 @@ function SettingsPanel({
       <button className="action-button w-fit" onClick={applyImport} type="button">Aplicar JSON pegado</button>
       <pre className="max-h-96 overflow-auto rounded-md border border-stone-800 bg-stone-950 p-3 text-xs text-stone-300">{stateJson}</pre>
     </section>
+  );
+}
+
+function SaveSyncReportPanel({ report }: { report: SaveSyncReport }) {
+  return (
+    <div className="grid gap-3 rounded-md border border-stone-800 bg-stone-900 p-3">
+      <div className="grid gap-2 sm:grid-cols-4">
+        <SideStat label="Leidos" value={new Date(report.readAt).toLocaleTimeString()} />
+        <SideStat label="Nuevos" value={report.added} />
+        <SideStat label="Actualizados" value={report.updated} />
+        <SideStat label="Prohibidos" value={report.forbidden} />
+      </div>
+
+      {report.candidatesBetterThanSixth.length > 0 ? (
+        <div>
+          <p className="text-xs font-black uppercase text-amber-200">Candidatos por encima del sexto</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {report.candidatesBetterThanSixth.map((pokemon) => (
+              <span
+                key={pokemon.id}
+                className="rounded-sm border border-amber-300/40 bg-amber-300/10 px-2 py-1 text-xs font-bold text-amber-100"
+              >
+                {pokemon.nickname} ({pokemon.value}/10)
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {report.warnings.length > 0 ? (
+        <div className="grid gap-2">
+          {report.warnings.map((warning) => (
+            <p
+              key={warning.message}
+              className={cn(
+                "rounded-sm border px-2 py-1 text-xs font-semibold",
+                warning.level === "danger"
+                  ? "border-rose-400/40 bg-rose-500/10 text-rose-100"
+                  : warning.level === "warning"
+                    ? "border-amber-300/40 bg-amber-300/10 text-amber-100"
+                    : "border-cyan-300/30 bg-cyan-300/10 text-cyan-100",
+              )}
+            >
+              {warning.message}
+            </p>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

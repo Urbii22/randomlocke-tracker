@@ -208,6 +208,9 @@ const heldItems: InventoryItem[] = [
 
 export const seedGameState: GameState = {
   updatedAt,
+  settings: {
+    saveFilePath: "",
+  },
   levelCaps: [
     { gym: 1, leader: "Viola", cap: 14 },
     { gym: 2, leader: "Grant", cap: 30 },
