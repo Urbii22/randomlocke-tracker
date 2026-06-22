@@ -1,6 +1,6 @@
 import { createInitialGameState } from "@/lib/game";
 import { getMoveType } from "@/lib/combat";
-import type { GameState, Pokemon, PokemonMove } from "@/types/randomlocke";
+import type { GameState, Pokemon, PokemonMove, PokemonStats } from "@/types/randomlocke";
 
 export const STORAGE_KEY = "randomlocke-tracker-state-v4-current-team";
 
@@ -45,11 +45,31 @@ export function serializeGameState(state: GameState): string {
 
 function normalizePokemon(raw: unknown): Pokemon {
   const pokemon = raw as Pokemon & { moves?: unknown[] };
+  const stats = normalizeStats(pokemon.stats);
 
   return {
     ...pokemon,
+    stats,
     moves: Array.isArray(pokemon.moves) ? pokemon.moves.map(normalizeMove) : [],
   };
+}
+
+function normalizeStats(stats: unknown): PokemonStats | undefined {
+  if (!stats || typeof stats !== "object") {
+    return undefined;
+  }
+
+  const value = stats as Partial<PokemonStats>;
+  const normalized = {
+    hp: typeof value.hp === "number" ? value.hp : 0,
+    attack: typeof value.attack === "number" ? value.attack : 0,
+    defense: typeof value.defense === "number" ? value.defense : 0,
+    specialAttack: typeof value.specialAttack === "number" ? value.specialAttack : 0,
+    specialDefense: typeof value.specialDefense === "number" ? value.specialDefense : 0,
+    speed: typeof value.speed === "number" ? value.speed : 0,
+  };
+
+  return Object.values(normalized).some((entry) => entry > 0) ? normalized : undefined;
 }
 
 function normalizeMove(raw: unknown): PokemonMove {
