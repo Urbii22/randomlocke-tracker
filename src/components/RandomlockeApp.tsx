@@ -12,6 +12,7 @@ import {
   Eye,
   Flame,
   Gauge,
+  Gem,
   Ghost,
   HeartPulse,
   HardDrive,
@@ -19,6 +20,7 @@ import {
   Map as MapIcon,
   Moon,
   Mountain,
+  Origami,
   Package,
   Plus,
   RotateCcw,
@@ -153,7 +155,7 @@ const typeVisuals: Record<
     short: "Bi",
   },
   Roca: {
-    icon: Mountain,
+    icon: Gem,
     classes: "border-stone-300/70 bg-stone-600/25 text-stone-50",
     short: "Ro",
   },
@@ -163,7 +165,7 @@ const typeVisuals: Record<
     short: "Fa",
   },
   Dragón: {
-    icon: Sparkles,
+    icon: Origami,
     classes: "border-blue-300/70 bg-blue-600/20 text-blue-50",
     short: "Dr",
   },
