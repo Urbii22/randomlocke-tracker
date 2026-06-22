@@ -1623,9 +1623,9 @@ function SaveSyncReportPanel({ report }: { report: SaveSyncReport }) {
 
       {report.warnings.length > 0 ? (
         <div className="grid gap-2">
-          {report.warnings.map((warning) => (
+          {report.warnings.map((warning, index) => (
             <p
-              key={warning.message}
+              key={`${warning.level}-${warning.message}-${index}`}
               className={cn(
                 "rounded-sm border px-2 py-1 text-xs font-semibold",
                 warning.level === "danger"
