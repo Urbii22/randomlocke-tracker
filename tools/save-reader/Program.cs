@@ -34,6 +34,7 @@ catch (Exception ex)
         [],
         [],
         [],
+        null,
         [$"No se pudo leer el save: {ex.GetType().Name}"]
     );
     Console.WriteLine(JsonSerializer.Serialize(errorSnapshot, JsonOptions.Value));
@@ -98,7 +99,7 @@ internal static class SaveSnapshotReader
             }
         }
 
-        return new SaveSnapshot(DateTimeOffset.UtcNow, "Pokemon Y", party, boxes, GetBag(save), []);
+        return new SaveSnapshot(DateTimeOffset.UtcNow, "Pokemon Y", party, boxes, GetBag(save), GetProgress(save), []);
     }
 
     private static bool IsEmpty(PKM pokemon) => pokemon.Species == 0;
@@ -220,6 +221,41 @@ internal static class SaveSnapshotReader
         return [.. items];
     }
 
+    private static SaveProgress? GetProgress(SaveFile save)
+    {
+        if (save is not SAV6XY xy)
+            return null;
+
+        return new SaveProgress(
+            xy.Badges,
+            new SaveLocation(
+                xy.Situation.M,
+                xy.Situation.R,
+                xy.Situation.X,
+                xy.Situation.Y,
+                xy.Situation.Z,
+                GetLocationName(xy.Situation.M)
+            )
+        );
+    }
+
+    private static string GetLocationName(int mapId)
+    {
+        return mapId switch
+        {
+            2 => "Pueblo Boceto",
+            4 => "Ciudad Novarte",
+            6 => "Ciudad Luminalia",
+            7 => "Ciudad Relieve",
+            8 => "Ciudad Yantra",
+            9 => "Ciudad Témpera",
+            10 => "Ciudad Romantis",
+            11 => "Ciudad Fluxus",
+            12 => "Ciudad Fractal",
+            _ => $"Mapa {mapId}",
+        };
+    }
+
     private static string MapInventoryCategory(InventoryType type)
     {
         return type switch
@@ -282,7 +318,22 @@ internal sealed record SaveSnapshot(
     IReadOnlyList<SavePokemon> Party,
     IReadOnlyList<SavePokemon> Boxes,
     IReadOnlyList<SaveBagItem> Bag,
+    SaveProgress? Progress,
     IReadOnlyList<string> Errors
+);
+
+internal sealed record SaveProgress(
+    int Badges,
+    SaveLocation Location
+);
+
+internal sealed record SaveLocation(
+    int MapId,
+    int Zone,
+    float X,
+    float Y,
+    float Z,
+    string Name
 );
 
 internal sealed record SavePokemon(

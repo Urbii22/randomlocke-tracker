@@ -8,6 +8,7 @@ import type {
   PokemonSaveSource,
   PokemonStats,
   PokemonStatus,
+  SaveProgress,
 } from "@/types/randomlocke";
 
 export type SavePokemon = {
@@ -39,6 +40,7 @@ export type SaveSnapshot = {
   party: SavePokemon[];
   boxes: SavePokemon[];
   bag: SaveBagItem[];
+  progress?: SaveProgress;
   errors: string[];
 };
 
@@ -56,6 +58,7 @@ export type SaveSyncReport = {
   forbidden: number;
   candidatesBetterThanSixth: Pokemon[];
   warnings: SaveSyncWarning[];
+  progress?: SaveProgress;
 };
 
 export type SaveSyncResult = {
@@ -188,13 +191,16 @@ export function mergeSaveSnapshot(state: GameState, snapshot: SaveSnapshot): Sav
   );
   const pokemon = [...syncedPokemon, ...untouchedPokemon];
   const inventorySync = mergeSaveBag(state.inventory, snapshot.bag);
+  const battles = syncBattleProgressFromBadges(state.battles, snapshot.progress?.badges);
   const nextState: GameState = {
     ...state,
     pokemon,
     inventory: inventorySync.inventory,
+    battles,
     settings: {
       ...state.settings,
       lastSaveSyncAt: snapshot.readAt,
+      lastSaveProgress: snapshot.progress,
     },
     updatedAt: new Date().toISOString(),
   };
@@ -210,8 +216,45 @@ export function mergeSaveSnapshot(state: GameState, snapshot: SaveSnapshot): Sav
       forbidden,
       candidatesBetterThanSixth: getCandidatesBetterThanSixth(pokemon),
       warnings: buildSaveSyncWarnings(pokemon),
+      progress: snapshot.progress,
     },
   };
+}
+
+function syncBattleProgressFromBadges(
+  battles: GameState["battles"],
+  badges: number | undefined,
+): GameState["battles"] {
+  if (badges === undefined || badges < 0) {
+    return battles;
+  }
+
+  return battles.map((battle) => {
+    const completed =
+      battle.type === "gym"
+        ? getGymNumber(battle.id) <= badges
+        : battle.type === "friend"
+          ? getFriendBattleBadgeRequirement(battle.id) <= badges
+          : battle.completed;
+
+    return completed === battle.completed ? battle : { ...battle, completed };
+  });
+}
+
+function getGymNumber(id: string): number {
+  const match = /^gym-(\d+)$/.exec(id);
+  return match ? Number(match[1]) : Number.POSITIVE_INFINITY;
+}
+
+function getFriendBattleBadgeRequirement(id: string): number {
+  const friendRequirements: Record<string, number> = {
+    "friend-1": 2,
+    "friend-2": 4,
+    "friend-3": 6,
+    "friend-4": 8,
+  };
+
+  return friendRequirements[id] ?? Number.POSITIVE_INFINITY;
 }
 
 export function isLegendarySpecies(species: string): boolean {

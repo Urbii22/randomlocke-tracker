@@ -50,9 +50,53 @@ export function validateSaveSnapshot(value: unknown): SaveReaderParseResult {
       party: party.filter(isParsedPokemon).map((entry) => entry.pokemon),
       boxes: boxes.filter(isParsedPokemon).map((entry) => entry.pokemon),
       bag: bag.filter(isParsedBagItem).map((entry) => entry.item),
+      progress: parseProgress(value.progress),
       errors: Array.isArray(value.errors) ? value.errors.filter(isString) : [],
     },
   };
+}
+
+function parseProgress(value: unknown) {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const badges = getNumber(value.badges);
+  if (badges === undefined || badges < 0) {
+    return undefined;
+  }
+
+  const location = parseLocation(value.location);
+  return {
+    badges,
+    ...(location ? { location } : {}),
+  };
+}
+
+function parseLocation(value: unknown) {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const mapId = getNumber(value.mapId);
+  const zone = getNumber(value.zone);
+  const x = getNumber(value.x);
+  const y = getNumber(value.y);
+  const z = getNumber(value.z);
+  const name = getString(value.name);
+
+  if (
+    mapId === undefined ||
+    zone === undefined ||
+    x === undefined ||
+    y === undefined ||
+    z === undefined ||
+    !name
+  ) {
+    return undefined;
+  }
+
+  return { mapId, zone, x, y, z, name };
 }
 
 function parseSavePokemon(

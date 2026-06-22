@@ -30,6 +30,7 @@ export function parseStoredGameState(raw: string | null): GameState {
                 typeof parsed.settings.lastSaveSyncAt === "string"
                   ? parsed.settings.lastSaveSyncAt
                   : undefined,
+              lastSaveProgress: parseSaveProgress(parsed.settings.lastSaveProgress),
             }
           : fallback.settings,
       updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : fallback.updatedAt,
@@ -37,6 +38,53 @@ export function parseStoredGameState(raw: string | null): GameState {
   } catch {
     return createInitialGameState();
   }
+}
+
+function parseSaveProgress(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const progress = value as {
+    badges?: unknown;
+    location?: unknown;
+  };
+
+  if (typeof progress.badges !== "number" || !Number.isFinite(progress.badges)) {
+    return undefined;
+  }
+
+  return {
+    badges: progress.badges,
+    ...(parseSaveLocation(progress.location) ? { location: parseSaveLocation(progress.location) } : {}),
+  };
+}
+
+function parseSaveLocation(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const location = value as Record<string, unknown>;
+  const mapId = location.mapId;
+  const zone = location.zone;
+  const x = location.x;
+  const y = location.y;
+  const z = location.z;
+  const name = location.name;
+
+  if (
+    typeof mapId !== "number" ||
+    typeof zone !== "number" ||
+    typeof x !== "number" ||
+    typeof y !== "number" ||
+    typeof z !== "number" ||
+    typeof name !== "string"
+  ) {
+    return undefined;
+  }
+
+  return { mapId, zone, x, y, z, name };
 }
 
 export function serializeGameState(state: GameState): string {

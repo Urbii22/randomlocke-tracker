@@ -65,6 +65,7 @@ import type {
   Pokemon,
   PokemonStatus,
   Route,
+  SaveProgress,
 } from "@/types/randomlocke";
 import {
   InventoryEditorPanel,
@@ -414,7 +415,11 @@ export function RandomlockeApp() {
             </div>
           ) : null}
 
-          <RunHeader nextGym={summary.nextGym} nextFriendBattle={summary.nextFriendBattle} />
+          <RunHeader
+            nextGym={summary.nextGym}
+            nextFriendBattle={summary.nextFriendBattle}
+            progress={game.state.settings.lastSaveProgress}
+          />
 
           {view === "dashboard" ? (
             <Dashboard pokemon={game.state.pokemon} battles={game.state.battles} summary={summary} />
@@ -1123,7 +1128,15 @@ function normalizeTypeForUi(type: string): PokemonType | undefined {
   return Object.keys(typeVisuals).find((entry) => entry === type) as PokemonType | undefined;
 }
 
-function RunHeader({ nextGym, nextFriendBattle }: { nextGym?: Battle; nextFriendBattle?: Battle }) {
+function RunHeader({
+  nextGym,
+  nextFriendBattle,
+  progress,
+}: {
+  nextGym?: Battle;
+  nextFriendBattle?: Battle;
+  progress?: SaveProgress;
+}) {
   return (
     <section className="grid gap-3 rounded-md border border-stone-800 bg-stone-900 p-4 md:grid-cols-[1fr_auto]">
       <div>
@@ -1134,6 +1147,14 @@ function RunHeader({ nextGym, nextFriendBattle }: { nextGym?: Battle; nextFriend
         <p className="mt-2 text-sm text-pretty text-stone-400">
           Combate de amigos en cola: {nextFriendBattle?.name ?? "sin pendiente"}.
         </p>
+        {progress ? (
+          <p className="mt-2 text-sm font-semibold text-cyan-100">
+            Save: {progress.badges}/8 medallas
+            {progress.location
+              ? ` · ${progress.location.name} (${Math.round(progress.location.x)}, ${Math.round(progress.location.y)})`
+              : ""}
+          </p>
+        ) : null}
       </div>
       <div className="grid grid-cols-2 gap-2 md:min-w-72">
         <div className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3">
@@ -1604,6 +1625,17 @@ function SaveSyncReportPanel({ report }: { report: SaveSyncReport }) {
         <SideStat label="Obj. act." value={report.inventoryUpdated} />
         <SideStat label="Prohibidos" value={report.forbidden} />
       </div>
+
+      {report.progress ? (
+        <div className="rounded-md border border-cyan-300/30 bg-cyan-300/10 p-3 text-sm text-cyan-100">
+          <p className="font-black">Progreso del save: {report.progress.badges}/8 medallas</p>
+          <p className="mt-1 font-semibold text-cyan-100/80">
+            {report.progress.location
+              ? `${report.progress.location.name} · mapa ${report.progress.location.mapId} · X ${Math.round(report.progress.location.x)} / Y ${Math.round(report.progress.location.y)}`
+              : "Ubicacion no disponible"}
+          </p>
+        </div>
+      ) : null}
 
       {report.candidatesBetterThanSixth.length > 0 ? (
         <div>

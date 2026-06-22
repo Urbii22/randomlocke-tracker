@@ -116,6 +116,21 @@ export type LevelCap = {
 export type GameSettings = {
   saveFilePath: string;
   lastSaveSyncAt?: string;
+  lastSaveProgress?: SaveProgress;
+};
+
+export type SaveProgress = {
+  badges: number;
+  location?: SaveLocation;
+};
+
+export type SaveLocation = {
+  mapId: number;
+  zone: number;
+  x: number;
+  y: number;
+  z: number;
+  name: string;
 };
 
 export type GameState = {

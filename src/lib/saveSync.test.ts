@@ -88,7 +88,15 @@ function stateWithPepe(overrides: Partial<Pokemon> = {}): GameState {
 describe("save sync", () => {
   it("merges a save snapshot while updating current location and stats", () => {
     const state = stateWithPepe();
-    const result = mergeSaveSnapshot(state, snapshot());
+    const result = mergeSaveSnapshot(
+      state,
+      snapshot({
+        progress: {
+          badges: 3,
+          location: { mapId: 24, zone: 0, x: 369, y: 441, z: 3, name: "Mapa 24" },
+        },
+      }),
+    );
 
     const pepe = result.state.pokemon.find((pokemon) => pokemon.nickname === "PEPE");
     const gible = result.state.pokemon.find((pokemon) => pokemon.nickname === "Gible");
@@ -110,6 +118,11 @@ describe("save sync", () => {
       slot: 3,
     });
     expect(result.report).toMatchObject({ added: 1, updated: 1 });
+    expect(result.report.progress).toMatchObject({ badges: 3 });
+    expect(result.state.settings.lastSaveProgress).toMatchObject({ badges: 3 });
+    expect(result.state.battles.find((battle) => battle.id === "gym-3")?.completed).toBe(true);
+    expect(result.state.battles.find((battle) => battle.id === "gym-4")?.completed).toBe(false);
+    expect(result.state.battles.find((battle) => battle.id === "friend-1")?.completed).toBe(true);
   });
 
   it("preserves dead pokemon even when they appear in the party", () => {
@@ -409,6 +422,28 @@ describe("save sync", () => {
     expect(parseSaveReaderOutput("{not-json")).toEqual({
       ok: false,
       error: "El lector devolvio JSON invalido.",
+    });
+  });
+
+  it("parses save progress from reader JSON", () => {
+    const parsed = parseSaveReaderOutput(
+      JSON.stringify({
+        ...snapshot(),
+        progress: {
+          badges: 3,
+          location: { mapId: 24, zone: 0, x: 369, y: 441, z: 3, name: "Mapa 24" },
+        },
+      }),
+    );
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      snapshot: {
+        progress: {
+          badges: 3,
+          location: { mapId: 24, name: "Mapa 24" },
+        },
+      },
     });
   });
 
