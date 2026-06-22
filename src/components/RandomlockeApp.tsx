@@ -36,7 +36,12 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useLocalStorageGameState } from "@/hooks/useLocalStorageGameState";
-import { getTeamCombatProfile, type PokemonType } from "@/lib/combat";
+import {
+  getTeamCombatProfile,
+  isMoveSuperEffectiveAgainstType,
+  pokemonTypes,
+  type PokemonType,
+} from "@/lib/combat";
 import { cn } from "@/lib/cn";
 import {
   calculateDashboardSummary,
@@ -506,6 +511,7 @@ function CombatHub({
   profile: ReturnType<typeof getTeamCombatProfile>;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
+  const [selectedTargetType, setSelectedTargetType] = useState<PokemonType | undefined>();
   const dangerRows = profile.defenseRows
     .filter((row) => row.weakTo.length > 0)
     .toSorted((a, b) => b.weakTo.length - a.weakTo.length);
@@ -513,6 +519,13 @@ function CombatHub({
     .filter((row) => row.resists.length > 0 || row.immune.length > 0)
     .toSorted((a, b) => b.immune.length + b.resists.length - (a.immune.length + a.resists.length));
   const bestSwitchType = safeRows[0];
+  const counterMoves = selectedTargetType
+    ? profile.members.flatMap((member) =>
+        member.moveTypes
+          .filter((move) => isMoveSuperEffectiveAgainstType(move.type, selectedTargetType))
+          .map((move) => ({ pokemon: member.pokemon.nickname, move: move.move.name })),
+      )
+    : [];
 
   return (
     <section className="grid gap-4">
@@ -560,18 +573,30 @@ function CombatHub({
 
           <div className="rounded-md border border-stone-800 bg-stone-950 p-2.5">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-xs font-black uppercase text-stone-300">Cobertura ofensiva</h3>
+              <h3 className="text-xs font-black uppercase text-stone-300">Tipo rival</h3>
               <span className="font-mono text-xs font-bold text-stone-500">
-                {profile.offensiveTypes.length} tipos
+                {selectedTargetType ? `${counterMoves.length} counters` : "elige uno"}
               </span>
             </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {profile.offensiveTypes.length > 0 ? (
-                profile.offensiveTypes.map((type) => <TypeBadge key={type} type={type} compact />)
-              ) : (
-                <span className="text-sm text-stone-400">Sin ataques tipados reconocidos.</span>
-              )}
+            <div
+              className="mt-2 grid gap-1.5"
+              style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}
+            >
+              {pokemonTypes.map((type) => (
+                <TypeTargetButton
+                  key={type}
+                  type={type}
+                  selected={selectedTargetType === type}
+                  counterCount={getCounterCount(profile.members, type)}
+                  onClick={() => setSelectedTargetType((current) => (current === type ? undefined : type))}
+                />
+              ))}
             </div>
+            <p className="mt-2 text-xs font-semibold text-stone-500">
+              {selectedTargetType
+                ? `Resaltando ataques eficaces contra ${selectedTargetType}.`
+                : "Pulsa un tipo para ver qué ataques del equipo le pegan eficazmente."}
+            </p>
           </div>
         </div>
 
@@ -583,7 +608,11 @@ function CombatHub({
             </p>
           </div>
         ) : (
-          <CombatRosterTable members={profile.members} onEditPokemon={onEditPokemon} />
+          <CombatRosterTable
+            members={profile.members}
+            selectedTargetType={selectedTargetType}
+            onEditPokemon={onEditPokemon}
+          />
         )}
       </section>
 
@@ -623,11 +652,61 @@ function CombatSignal({
   );
 }
 
+function TypeTargetButton({
+  type,
+  selected,
+  counterCount,
+  onClick,
+}: {
+  type: PokemonType;
+  selected: boolean;
+  counterCount: number;
+  onClick: () => void;
+}) {
+  const visual = typeVisuals[type];
+  const Icon = visual.icon;
+
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={cn(
+        "flex h-8 min-w-0 items-center justify-center gap-1 rounded-sm border px-1 font-black outline-none ring-offset-2 ring-offset-stone-950 transition",
+        visual.classes,
+        selected ? "ring-2 ring-amber-200" : "opacity-75 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-stone-400",
+      )}
+      title={`${type}: ${counterCount} ataques eficaces`}
+    >
+      <Icon size={13} aria-hidden="true" />
+      <span className="sr-only">{type}</span>
+      {counterCount > 0 ? (
+        <span className="font-mono text-[0.62rem] tabular-nums opacity-90">
+          {counterCount}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+function getCounterCount(
+  members: ReturnType<typeof getTeamCombatProfile>["members"],
+  targetType: PokemonType,
+): number {
+  return members.reduce(
+    (count, member) =>
+      count + member.moveTypes.filter((move) => isMoveSuperEffectiveAgainstType(move.type, targetType)).length,
+    0,
+  );
+}
+
 function CombatRosterTable({
   members,
+  selectedTargetType,
   onEditPokemon,
 }: {
   members: ReturnType<typeof getTeamCombatProfile>["members"];
+  selectedTargetType?: PokemonType;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
   return (
@@ -645,6 +724,7 @@ function CombatRosterTable({
           <CombatRosterRow
             key={member.pokemon.id}
             member={member}
+            selectedTargetType={selectedTargetType}
             onEditPokemon={onEditPokemon}
           />
         ))}
@@ -655,9 +735,11 @@ function CombatRosterTable({
 
 function CombatRosterRow({
   member,
+  selectedTargetType,
   onEditPokemon,
 }: {
   member: ReturnType<typeof getTeamCombatProfile>["members"][number];
+  selectedTargetType?: PokemonType;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
   return (
@@ -684,7 +766,13 @@ function CombatRosterRow({
 
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-2">
         {member.moveTypes.map((move) => (
-          <MovePill key={move.move.name} move={move.move} type={move.type} />
+          <MovePill
+            key={move.move.name}
+            move={move.move}
+            type={move.type}
+            isCounter={isMoveSuperEffectiveAgainstType(move.type, selectedTargetType)}
+            isDimmed={Boolean(selectedTargetType) && !isMoveSuperEffectiveAgainstType(move.type, selectedTargetType)}
+          />
         ))}
       </div>
 
@@ -756,13 +844,27 @@ function CompactTypeList({
 function MovePill({
   move,
   type,
+  isCounter = false,
+  isDimmed = false,
 }: {
   move: Pokemon["moves"][number];
   type?: PokemonType;
+  isCounter?: boolean;
+  isDimmed?: boolean;
 }) {
   return (
-    <div className="flex h-7 min-w-0 items-center justify-between gap-1.5 rounded-sm border border-stone-800 bg-stone-900 px-1.5">
-      <span className="min-w-0 truncate text-[0.68rem] font-bold text-stone-200">{move.name}</span>
+    <div
+      className={cn(
+        "flex h-7 min-w-0 items-center justify-between gap-1.5 rounded-sm border px-1.5 transition",
+        isCounter
+          ? "border-amber-200 bg-amber-300/20 shadow-[0_0_0_1px_rgba(253,230,138,0.35)]"
+          : "border-stone-800 bg-stone-900",
+        isDimmed ? "opacity-45" : "",
+      )}
+    >
+      <span className={cn("min-w-0 truncate text-[0.68rem] font-bold", isCounter ? "text-amber-50" : "text-stone-200")}>
+        {move.name}
+      </span>
       <span className="flex shrink-0 items-center gap-1">
         <MoveCategoryBadge category={move.category} />
         {move.power ? <span className="font-mono text-[0.62rem] font-black text-amber-100">{move.power}</span> : null}

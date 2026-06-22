@@ -1,23 +1,67 @@
 import { describe, expect, it } from "vitest";
+import type { Pokemon } from "@/types/randomlocke";
 import {
   getMoveType,
   getPokemonDefensiveProfile,
   getTeamCombatProfile,
+  isMoveSuperEffectiveAgainstType,
 } from "./combat";
-import { createInitialGameState } from "./game";
+
+const testTeam: Pokemon[] = [
+  {
+    id: "pkm-iron",
+    species: "Aron",
+    nickname: "Iron",
+    level: 20,
+    types: ["Acero", "Roca"],
+    ability: "Sturdy",
+    moves: [
+      { name: "Rock Slide", type: "Roca", power: null, accuracy: null, category: "unknown" },
+      { name: "Dragon Tail", type: "Dragon", power: null, accuracy: null, category: "unknown" },
+    ],
+    item: "",
+    status: "alive",
+    role: "",
+    value: 5,
+    notes: "",
+    routeCaught: "",
+    deathCause: "",
+    deathLocation: "",
+  },
+  {
+    id: "pkm-spark",
+    species: "Dedenne",
+    nickname: "Spark",
+    level: 20,
+    types: ["Electrico", "Hada"],
+    ability: "Pickup",
+    moves: [
+      { name: "Thunder", type: "Electrico", power: null, accuracy: null, category: "unknown" },
+      { name: "Bone Rush", type: "Tierra", power: null, accuracy: null, category: "unknown" },
+    ],
+    item: "",
+    status: "alive",
+    role: "",
+    value: 5,
+    notes: "",
+    routeCaught: "",
+    deathCause: "",
+    deathLocation: "",
+  },
+];
 
 describe("combat helpers", () => {
   it("infers known move types from move names", () => {
-    expect(getMoveType("Cola Dragón")).toBe("Dragón");
+    expect(getMoveType("Cola Dragon")).toBe("Dragón");
     expect(getMoveType("Avalancha")).toBe("Roca");
     expect(getMoveType("Psicocambio")).toBe("Psíquico");
     expect(getMoveType("Doble Patada")).toBe("Lucha");
     expect(getMoveType("Clavo Cañón")).toBe("Normal");
-    expect(getMoveType("Inversión")).toBe("Lucha");
+    expect(getMoveType("Inversion")).toBe("Lucha");
     expect(getMoveType("Voto Agua")).toBe("Agua");
     expect(getMoveType("Ataque Fulgor")).toBe("Eléctrico");
     expect(getMoveType("Sombra Vil")).toBe("Fantasma");
-    expect(getMoveType("Ataque Óseo")).toBe("Tierra");
+    expect(getMoveType("Ataque Oseo")).toBe("Tierra");
     expect(getMoveType("Lluevehojas")).toBe("Planta");
     expect(getMoveType("Aire Afilado")).toBe("Volador");
     expect(getMoveType("Veneno X")).toBe("Veneno");
@@ -34,8 +78,8 @@ describe("combat helpers", () => {
   });
 
   it("calculates Aron defensive profile from Acero/Roca", () => {
-    const [piedrita] = createInitialGameState().pokemon;
-    const profile = getPokemonDefensiveProfile(piedrita);
+    const [iron] = testTeam;
+    const profile = getPokemonDefensiveProfile(iron);
 
     expect(profile.weaknesses).toEqual(
       expect.arrayContaining([
@@ -54,37 +98,21 @@ describe("combat helpers", () => {
   });
 
   it("builds a combat profile from active team members", () => {
-    const state = createInitialGameState();
-    const profile = getTeamCombatProfile(state.pokemon);
+    const profile = getTeamCombatProfile(testTeam);
 
-    expect(profile.members).toHaveLength(6);
-    expect(profile.members[0].pokemon.nickname).toBe("Piedrita");
-    expect(profile.members[1].pokemon.nickname).toBe("Patadon");
-    expect(profile.members[2].pokemon.nickname).toBe("PEPE");
-    expect(profile.members[3].pokemon.nickname).toBe("LA RACHA");
-    expect(profile.members[4].pokemon.nickname).toBe("PITUFO");
-    expect(profile.members[5].pokemon.nickname).toBe("PIUPIU");
-    expect(profile.offensiveTypes).toEqual([
-      "Dragón",
-      "Roca",
-      "Psíquico",
-      "Fantasma",
-      "Lucha",
-      "Eléctrico",
-      "Tierra",
-      "Planta",
-      "Hielo",
-      "Volador",
-      "Agua",
-      "Normal",
-      "Veneno",
-      "Fuego",
-      "Acero",
-    ]);
+    expect(profile.members).toHaveLength(2);
+    expect(profile.members[0].pokemon.nickname).toBe("Iron");
+    expect(profile.members[1].pokemon.nickname).toBe("Spark");
+    expect(profile.offensiveTypes).toEqual(["Roca", "Dragón", "Eléctrico", "Tierra"]);
     expect(profile.defenseRows.find((row) => row.type === "Tierra")?.weakTo).toEqual([
-      "Piedrita",
-      "Patadon",
-      "LA RACHA",
+      "Iron",
+      "Spark",
     ]);
+  });
+
+  it("detects moves that counter a selected defender type", () => {
+    expect(isMoveSuperEffectiveAgainstType("Tierra", "Eléctrico")).toBe(true);
+    expect(isMoveSuperEffectiveAgainstType("Roca", "Eléctrico")).toBe(false);
+    expect(isMoveSuperEffectiveAgainstType(undefined, "Eléctrico")).toBe(false);
   });
 });

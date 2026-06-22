@@ -1,210 +1,6 @@
-import type { GameState, InventoryItem, Pokemon, PokemonMove } from "@/types/randomlocke";
+import type { GameState } from "@/types/randomlocke";
 
 const updatedAt = "2026-06-21T00:00:00.000Z";
-
-function move(
-  name: string,
-  type: string,
-  power: number | null = null,
-  accuracy: number | null = null,
-  category: PokemonMove["category"] = "unknown",
-): PokemonMove {
-  return { name, type, power, accuracy, category };
-}
-
-const currentTeam: Pokemon[] = [
-  {
-    id: "pkm-piedrita",
-    species: "Aron",
-    nickname: "Piedrita",
-    level: 17,
-    types: ["Acero", "Roca"],
-    ability: "Veleta",
-    moves: [
-      move("Cola Drag\u00f3n", "Drag\u00f3n"),
-      move("Avalancha", "Roca"),
-      move("Psicocambio", "Ps\u00edquico"),
-      move("Sombra Vil", "Fantasma"),
-    ],
-    item: "Tabla Terror",
-    status: "alive",
-    role: "Tanque f\u00edsico, utility y cobertura f\u00edsica",
-    value: 8,
-    notes:
-      "Hembra. PS 49/49, Atq 30, Def 41, At. Esp. 19, Def. Esp. 20, Vel. 15. Veleta: sube mucho una caracter\u00edstica y baja otra. Muy buena defensa f\u00edsica; evitar ataques especiales fuertes.",
-    routeCaught: "Pendiente",
-    deathCause: "",
-    deathLocation: "",
-  },
-  {
-    id: "pkm-patadon",
-    species: "Dedenne",
-    nickname: "Patadon",
-    level: 17,
-    types: ["El\u00e9ctrico", "Hada"],
-    ability: "Intimidaci\u00f3n",
-    moves: [
-      move("Doble Patada", "Lucha"),
-      move("Paso Dimensional", "Ps\u00edquico"),
-      move("Trueno", "El\u00e9ctrico"),
-      move("Ataque \u00d3seo", "Tierra"),
-    ],
-    item: "",
-    status: "alive",
-    role: "Lead seguro, utility y especial r\u00e1pido",
-    value: 9,
-    notes:
-      "Hembra. PS 55/55, Atq 27, Def 25, At. Esp. 34, Def. Esp. 35, Vel. 40. Intimidaci\u00f3n baja el Ataque rival; muy buen lead contra atacantes f\u00edsicos.",
-    routeCaught: "Pendiente",
-    deathCause: "",
-    deathLocation: "",
-  },
-  {
-    id: "pkm-pepe",
-    species: "Venusaur",
-    nickname: "PEPE",
-    level: 19,
-    types: ["Planta", "Veneno"],
-    ability: "Resquicio",
-    moves: [
-      move("Lluevehojas", "Planta"),
-      move("Rayo G\u00e9lido", "Hielo"),
-      move("Resplandor", "Ps\u00edquico"),
-      move("Aire Afilado", "Volador"),
-    ],
-    item: "Venusaurita",
-    status: "alive",
-    role: "Tanque mixto, win condition y cobertura especial",
-    value: 10,
-    notes:
-      "Macho. PS 63/63, Atq 47, Def 57, At. Esp. 50, Def. Esp. 53, Vel. 44. Mejor Pok\u00e9mon defensivo del equipo. Much\u00edsima cobertura, pero tres ataques tienen 5 PP.",
-    routeCaught: "Pendiente",
-    deathCause: "",
-    deathLocation: "",
-  },
-  {
-    id: "pkm-la-racha",
-    species: "Quilava",
-    nickname: "LA RACHA",
-    level: 18,
-    types: ["Fuego"],
-    ability: "Agallas",
-    moves: [
-      move("Inversi\u00f3n", "Lucha"),
-      move("Rayo Carga", "El\u00e9ctrico"),
-      move("Voto Agua", "Agua"),
-      move("Ataque Fulgor", "El\u00e9ctrico"),
-    ],
-    item: "Cinta Elegida",
-    status: "alive",
-    role: "Wallbreaker mixto y revenge killer situacional",
-    value: 8,
-    notes:
-      "Macho. PS 50/50, Atq 30, Def 27, At. Esp. 37, Def. Esp. 28, Vel. 36. Cinta Elegida obliga a bloquearse en un movimiento; muy peligroso si se elige mal.",
-    routeCaught: "Pendiente",
-    deathCause: "",
-    deathLocation: "",
-  },
-  {
-    id: "pkm-pitufo",
-    species: "Salamence",
-    nickname: "PITUFO",
-    level: 17,
-    types: ["Drag\u00f3n", "Volador"],
-    ability: "Llovizna",
-    moves: [
-      move("Paso Dimensional", "Ps\u00edquico"),
-      move("Eco Voz", "Normal"),
-      move("Fr\u00edo Polar", "Hielo"),
-      move("Aire Afilado", "Volador"),
-    ],
-    item: "Lustresfera",
-    status: "alive",
-    role: "Sweeper f\u00edsico, setter de lluvia y pivot ofensivo",
-    value: 10,
-    notes:
-      "Hembra. PS 62/62, Atq 53, Def 33, At. Esp. 40, Def. Esp. 35, Vel. 39. Llovizna ayuda a Prinplup/Voto Agua, pero reduce el da\u00f1o de Fuego de Quilava y Llama Azul de Prinplup.",
-    routeCaught: "Pendiente",
-    deathCause: "",
-    deathLocation: "",
-  },
-  {
-    id: "pkm-piupiu",
-    species: "Prinplup",
-    nickname: "PIUPIU",
-    level: 17,
-    types: ["Agua"],
-    ability: "Energ\u00eda Pura",
-    moves: [
-      move("Veneno X", "Veneno", 70, 100, "physical"),
-      move("Llama Azul", "Fuego"),
-      move("Pistola Agua", "Agua"),
-      move("Ala de Acero", "Acero"),
-    ],
-    item: "Ra\u00edz Grande",
-    status: "alive",
-    role: "Sweeper f\u00edsico, tanque mixto y cobertura",
-    value: 9,
-    notes:
-      "Hembra. PS 51/51, Atq 32, Def 33, At. Esp. 32, Def. Esp. 32, Vel. 26. Energ\u00eda Pura lo hace much\u00edsimo mejor de lo que parece; Veneno X y Ala de Acero son sus mejores botones f\u00edsicos.",
-    routeCaught: "Pendiente",
-    deathCause: "",
-    deathLocation: "",
-  },
-];
-
-const heldItems: InventoryItem[] = [
-  {
-    id: "item-venusaurita",
-    name: "Venusaurita",
-    category: "held_item",
-    quantity: 1,
-    location: "Pendiente",
-    status: "equipped",
-    holderPokemonId: "pkm-pepe",
-    notes: "Objeto equipado en PEPE.",
-  },
-  {
-    id: "item-cinta-elegida",
-    name: "Cinta Elegida",
-    category: "held_item",
-    quantity: 1,
-    location: "Pendiente",
-    status: "equipped",
-    holderPokemonId: "pkm-la-racha",
-    notes: "Objeto equipado en LA RACHA.",
-  },
-  {
-    id: "item-tabla-terror",
-    name: "Tabla Terror",
-    category: "held_item",
-    quantity: 1,
-    location: "Pendiente",
-    status: "equipped",
-    holderPokemonId: "pkm-piedrita",
-    notes: "Objeto equipado en Piedrita.",
-  },
-  {
-    id: "item-raiz-grande",
-    name: "Ra\u00edz Grande",
-    category: "held_item",
-    quantity: 1,
-    location: "Pendiente",
-    status: "equipped",
-    holderPokemonId: "pkm-piupiu",
-    notes: "Objeto equipado en PIUPIU.",
-  },
-  {
-    id: "item-lustresfera",
-    name: "Lustresfera",
-    category: "held_item",
-    quantity: 1,
-    location: "Pendiente",
-    status: "equipped",
-    holderPokemonId: "pkm-pitufo",
-    notes: "Objeto equipado en PITUFO.",
-  },
-];
 
 export const seedGameState: GameState = {
   updatedAt,
@@ -221,19 +17,9 @@ export const seedGameState: GameState = {
     { gym: 7, leader: "Olympia", cap: 58 },
     { gym: 8, leader: "Wulfric", cap: 71 },
   ],
-  pokemon: currentTeam,
-  inventory: heldItems,
-  routes: [
-    {
-      id: "route-pendiente",
-      name: "Rutas pendientes de confirmar",
-      capture1PokemonId: "",
-      capture2PokemonId: "",
-      status: "pending",
-      notes:
-        "El JSON actual no confirma rutas usadas, caja ni muertos. Completar al revisar las capturas por ruta.",
-    },
-  ],
+  pokemon: [],
+  inventory: [],
+  routes: [],
   battles: [
     {
       id: "gym-1",
@@ -241,14 +27,14 @@ export const seedGameState: GameState = {
       type: "gym",
       levelCap: 14,
       notes: "Primer cap obligatorio.",
-      completed: true,
+      completed: false,
     },
     {
       id: "gym-2",
       name: "Gimnasio de Ciudad Relieve",
       type: "gym",
       levelCap: 30,
-      notes: "Cap actual del JSON. Tras este gimnasio toca combate contra amigos.",
+      notes: "Tras este gimnasio toca combate contra amigos.",
       completed: false,
     },
     {

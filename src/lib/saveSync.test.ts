@@ -3,6 +3,7 @@ import { createInitialGameState } from "@/lib/game";
 import { validateConfiguredSavePath } from "@/lib/savePath";
 import { parseSaveReaderOutput } from "@/lib/saveReader";
 import { isLegendarySpecies, mergeSaveSnapshot, type SaveSnapshot } from "@/lib/saveSync";
+import type { GameState, Pokemon } from "@/types/randomlocke";
 
 const readAt = "2026-06-22T12:00:00.000Z";
 
@@ -59,9 +60,34 @@ function snapshot(overrides: Partial<SaveSnapshot> = {}): SaveSnapshot {
   };
 }
 
+function stateWithPepe(overrides: Partial<Pokemon> = {}): GameState {
+  const state = createInitialGameState();
+  state.pokemon = [
+    {
+      id: "pkm-pepe",
+      species: "Venusaur",
+      nickname: "PEPE",
+      level: 19,
+      types: ["Planta", "Veneno"],
+      ability: "Resquicio",
+      moves: [],
+      item: "Venusaurita",
+      status: "alive",
+      role: "",
+      value: 5,
+      notes: "",
+      routeCaught: "",
+      deathCause: "",
+      deathLocation: "",
+      ...overrides,
+    },
+  ];
+  return state;
+}
+
 describe("save sync", () => {
   it("merges a save snapshot while updating current location and stats", () => {
-    const state = createInitialGameState();
+    const state = stateWithPepe();
     const result = mergeSaveSnapshot(state, snapshot());
 
     const pepe = result.state.pokemon.find((pokemon) => pokemon.nickname === "PEPE");
@@ -87,10 +113,7 @@ describe("save sync", () => {
   });
 
   it("preserves dead pokemon even when they appear in the party", () => {
-    const state = createInitialGameState();
-    state.pokemon = state.pokemon.map((pokemon) =>
-      pokemon.id === "pkm-pepe" ? { ...pokemon, status: "dead" } : pokemon,
-    );
+    const state = stateWithPepe({ status: "dead" });
 
     const result = mergeSaveSnapshot(state, snapshot());
 
@@ -98,19 +121,13 @@ describe("save sync", () => {
   });
 
   it("preserves manual notes, role, route and death fields", () => {
-    const state = createInitialGameState();
-    state.pokemon = state.pokemon.map((pokemon) =>
-      pokemon.id === "pkm-pepe"
-        ? {
-            ...pokemon,
-            notes: "No tocar",
-            role: "Win condition manual",
-            routeCaught: "Ruta 5",
-            deathCause: "Critico",
-            deathLocation: "Gimnasio",
-          }
-        : pokemon,
-    );
+    const state = stateWithPepe({
+      notes: "No tocar",
+      role: "Win condition manual",
+      routeCaught: "Ruta 5",
+      deathCause: "Critico",
+      deathLocation: "Gimnasio",
+    });
 
     const result = mergeSaveSnapshot(state, snapshot());
 
