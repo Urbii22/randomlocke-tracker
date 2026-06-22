@@ -584,15 +584,14 @@ function CombatHub({
                 <span className="font-mono text-xs font-bold text-stone-500">
                   {selectedTargetTypes.length > 0 ? `${counterMoves.length} counters` : "elige tipos"}
                 </span>
-                {selectedTargetTypes.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTargetTypes([])}
-                    className="rounded-sm border border-stone-700 bg-stone-900 px-2 py-1 text-[0.65rem] font-black uppercase text-stone-300 hover:border-amber-200 hover:text-amber-100"
-                  >
-                    Limpiar
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setSelectedTargetTypes([])}
+                  disabled={selectedTargetTypes.length === 0}
+                  className="rounded-sm border border-stone-700 bg-stone-900 px-1.5 py-0.5 text-[0.58rem] font-black uppercase text-stone-400 hover:border-amber-200 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-stone-700 disabled:hover:text-stone-400"
+                >
+                  Limpiar
+                </button>
               </div>
             </div>
             <div
