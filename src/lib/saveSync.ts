@@ -179,7 +179,13 @@ export function mergeSaveSnapshot(state: GameState, snapshot: SaveSnapshot): Sav
     } satisfies Pokemon;
   });
 
-  const untouchedPokemon = state.pokemon.filter((pokemon) => !seenIds.has(pokemon.id));
+  const syncedNicknames = new Set(syncedPokemon.map((pokemon) => normalizeKey(pokemon.nickname)));
+  const syncedIdentities = new Set(syncedPokemon.map(identityFor));
+  const untouchedPokemon = state.pokemon.filter(
+    (pokemon) =>
+      !seenIds.has(pokemon.id) &&
+      !isStaleSaveDuplicate(pokemon, syncedNicknames, syncedIdentities),
+  );
   const pokemon = [...syncedPokemon, ...untouchedPokemon];
   const inventorySync = mergeSaveBag(state.inventory, snapshot.bag);
   const nextState: GameState = {
@@ -457,6 +463,29 @@ function saveLocationKey(
   }
 
   return "";
+}
+
+function isStaleSaveDuplicate(
+  pokemon: Pokemon,
+  syncedNicknames: Set<string>,
+  syncedIdentities: Set<string>,
+): boolean {
+  if (pokemon.status === "dead" || pokemon.status === "forbidden") {
+    return false;
+  }
+
+  const nickname = normalizeKey(pokemon.nickname || pokemon.species);
+  if (!nickname || !syncedNicknames.has(nickname) || syncedIdentities.has(identityFor(pokemon))) {
+    return false;
+  }
+
+  return Boolean(
+    pokemon.source === "party" ||
+      pokemon.source === "box" ||
+      pokemon.lastSeenInSaveAt ||
+      typeof pokemon.partySlot === "number" ||
+      typeof pokemon.box === "number",
+  );
 }
 
 function normalizeKey(value: string): string {

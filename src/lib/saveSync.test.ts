@@ -160,6 +160,46 @@ describe("save sync", () => {
     expect(result.report).toMatchObject({ added: 1, updated: 1 });
   });
 
+  it("removes stale save duplicates left behind by a previous evolution sync", () => {
+    const state = stateWithPepe({
+      id: "pkm-pepe-evolved",
+      species: "Venusaur",
+      nickname: "PEPE",
+      source: "party",
+      partySlot: 0,
+      lastSeenInSaveAt: "2026-06-22T10:00:00.000Z",
+    });
+    state.pokemon.push({
+      id: "pkm-pepe-old",
+      species: "Ivysaur",
+      nickname: "PEPE",
+      level: 19,
+      types: ["Planta", "Veneno"],
+      ability: "Resquicio",
+      moves: [],
+      item: "",
+      source: "party",
+      partySlot: 0,
+      lastSeenInSaveAt: "2026-06-22T09:00:00.000Z",
+      status: "alive",
+      role: "",
+      value: 5,
+      notes: "",
+      routeCaught: "",
+      deathCause: "",
+      deathLocation: "",
+    });
+
+    const result = mergeSaveSnapshot(state, snapshot());
+
+    expect(result.state.pokemon.filter((pokemon) => pokemon.nickname === "PEPE")).toHaveLength(1);
+    expect(result.state.pokemon.find((pokemon) => pokemon.id === "pkm-pepe-old")).toBeUndefined();
+    expect(result.state.pokemon.find((pokemon) => pokemon.id === "pkm-pepe-evolved")).toMatchObject({
+      species: "Venusaur",
+      status: "alive",
+    });
+  });
+
   it("uses the save party slot as a fallback for unnamed evolutions", () => {
     const state = stateWithPepe({
       species: "Ivysaur",
