@@ -227,7 +227,7 @@ internal static class SaveSnapshotReader
             return null;
 
         return new SaveProgress(
-            xy.Badges,
+            CountSetBits(xy.Badges),
             new SaveLocation(
                 xy.Situation.M,
                 xy.Situation.R,
@@ -237,6 +237,20 @@ internal static class SaveSnapshotReader
                 GetLocationName(xy.Situation.M)
             )
         );
+    }
+
+    private static int CountSetBits(int value)
+    {
+        var count = 0;
+        var remaining = value;
+
+        while (remaining > 0)
+        {
+            count += remaining & 1;
+            remaining >>= 1;
+        }
+
+        return count;
     }
 
     private static string GetLocationName(int mapId)
