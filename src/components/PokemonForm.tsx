@@ -4,7 +4,13 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Archive, Plus, Skull, Trash2, UserPlus, X } from "lucide-react";
 import { FormEvent, KeyboardEvent, useState } from "react";
 import { cn } from "@/lib/cn";
-import { createMoveDraft, createPokemonDraft, parseListInput, validatePokemonDraft } from "@/lib/game";
+import {
+  createMoveDraft,
+  createPokemonDraft,
+  parseListInput,
+  pokemonStatusLabels,
+  validatePokemonDraft,
+} from "@/lib/game";
 import type {
   MoveCategory,
   Pokemon,
@@ -52,14 +58,19 @@ export function PokemonEditorPanel({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/70" />
-        <Dialog.Content className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-2xl flex-col border-l border-stone-700 bg-stone-950 shadow-xl sm:w-[min(42rem,calc(100vw-2rem))]">
+        <Dialog.Content
+          className="fixed bottom-0 right-0 top-0 z-50 flex flex-col border-l border-stone-700 bg-stone-950 shadow-xl"
+          style={{ width: "min(48rem, 100vw)" }}
+        >
           <div className="flex items-start justify-between gap-4 border-b border-stone-800 p-5">
             <div>
               <Dialog.Title className="text-2xl font-black text-balance text-stone-50">
-                {editing ? "Editar Pokémon" : "Añadir Pokémon"}
+                {editing ? editing.nickname || editing.species : "Añadir Pokémon"}
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-sm text-pretty text-stone-400">
-                Completa la ficha y guarda los cambios en esta partida local.
+                {editing
+                  ? `${editing.species} · Nv. ${editing.level} · ${pokemonStatusLabels[editing.status]}`
+                  : "Completa la ficha y guarda los cambios en esta partida local."}
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
@@ -74,6 +85,7 @@ export function PokemonEditorPanel({
           </div>
 
           <div className="overflow-y-auto p-5">
+            {editing ? <PokemonDetail pokemon={editing} /> : null}
             <PokemonForm
               key={editing?.id ?? "new"}
               editing={editing}
@@ -90,6 +102,148 @@ export function PokemonEditorPanel({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+function PokemonDetail({ pokemon }: { pokemon: Pokemon }) {
+  const location =
+    pokemon.source === "party"
+      ? `Equipo slot ${(pokemon.partySlot ?? 0) + 1}`
+      : pokemon.source === "box"
+        ? `Caja ${pokemon.box ?? "-"} · Slot ${pokemon.slot ?? "-"}`
+        : pokemon.routeCaught || "Manual";
+
+  return (
+    <section className="mb-5 grid gap-4 rounded-md border border-stone-800 bg-stone-900 p-4">
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+        <div>
+          <div className="flex flex-wrap gap-2">
+            {pokemon.types.length > 0 ? (
+              pokemon.types.map((type) => (
+                <span
+                  key={type}
+                  className="rounded-sm border border-stone-700 bg-stone-950 px-2 py-1 text-xs font-black text-stone-200"
+                >
+                  {type}
+                </span>
+              ))
+            ) : (
+              <span className="text-sm font-semibold text-stone-500">Sin tipos registrados</span>
+            )}
+          </div>
+          <p className="mt-3 text-sm text-pretty text-stone-300">
+            {pokemon.role || "Sin rol asignado"}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:min-w-64">
+          <DetailMetric label="Valor" value={`${pokemon.value}/10`} />
+          <DetailMetric label="Origen" value={location} />
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <DetailField label="Estado" value={pokemonStatusLabels[pokemon.status]} />
+        <DetailField label="Habilidad" value={pokemon.ability || "-"} />
+        <DetailField label="Objeto" value={pokemon.item || "-"} />
+        <DetailField label="Ruta" value={pokemon.routeCaught || "-"} />
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-[1fr_17rem]">
+        <div>
+          <p className="mb-2 text-xs font-black uppercase text-stone-500">Ataques</p>
+          {pokemon.moves.length > 0 ? (
+            <div className="grid gap-2">
+              {pokemon.moves.map((move, index) => (
+                <MoveDetail key={`${move.name}-${index}`} move={move} />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-md border border-stone-800 bg-stone-950 p-3 text-sm font-semibold text-stone-500">
+              Sin ataques registrados.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-black uppercase text-stone-500">Stats</p>
+          {pokemon.stats ? (
+            <div className="grid gap-1 rounded-md border border-stone-800 bg-stone-950 p-3">
+              <StatRow label="PS" value={pokemon.stats.hp} />
+              <StatRow label="Atk" value={pokemon.stats.attack} />
+              <StatRow label="Def" value={pokemon.stats.defense} />
+              <StatRow label="At. Esp." value={pokemon.stats.specialAttack} />
+              <StatRow label="Def. Esp." value={pokemon.stats.specialDefense} />
+              <StatRow label="Vel" value={pokemon.stats.speed} />
+            </div>
+          ) : (
+            <p className="rounded-md border border-stone-800 bg-stone-950 p-3 text-sm font-semibold text-stone-500">
+              Sin stats del save.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {pokemon.lastSeenInSaveAt || pokemon.notes ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <DetailField
+            label="Visto en save"
+            value={pokemon.lastSeenInSaveAt ? new Date(pokemon.lastSeenInSaveAt).toLocaleString() : "-"}
+          />
+          <DetailField label="Notas" value={pokemon.notes || "-"} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function DetailMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-stone-800 bg-stone-950 px-3 py-2">
+      <p className="text-[0.65rem] font-black uppercase text-stone-500">{label}</p>
+      <p className="mt-1 truncate text-sm font-black text-stone-100">{value}</p>
+    </div>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid gap-1">
+      <p className="text-xs font-black uppercase text-stone-500">{label}</p>
+      <p className="text-sm font-semibold text-pretty text-stone-200">{value}</p>
+    </div>
+  );
+}
+
+function MoveDetail({ move }: { move: PokemonMove }) {
+  const meta = [
+    move.type || "?",
+    move.category !== "unknown"
+      ? moveCategoryOptions.find((option) => option.value === move.category)?.label
+      : undefined,
+    move.power !== null ? `Pot. ${move.power}` : undefined,
+    move.accuracy !== null ? `Prec. ${move.accuracy}` : undefined,
+  ].filter(Boolean);
+
+  return (
+    <div className="grid gap-1 rounded-md border border-stone-800 bg-stone-950 px-3 py-2">
+      <p className="font-black text-stone-50">{move.name}</p>
+      <p className="text-xs font-semibold text-stone-400">{meta.join(" · ") || "Sin datos"}</p>
+    </div>
+  );
+}
+
+function StatRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="grid grid-cols-[4.5rem_1fr_2.5rem] items-center gap-2 text-xs">
+      <span className="font-black text-stone-400">{label}</span>
+      <span className="h-2 overflow-hidden rounded-sm bg-stone-800">
+        <span
+          className="block h-full rounded-sm bg-amber-300"
+          style={{ width: `${Math.min(100, Math.max(4, (value / 200) * 100))}%` }}
+        />
+      </span>
+      <span className="text-right font-mono font-black tabular-nums text-stone-100">{value}</span>
+    </div>
   );
 }
 
