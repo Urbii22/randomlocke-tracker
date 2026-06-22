@@ -1,5 +1,5 @@
-import type { MoveCategory } from "@/types/randomlocke";
-import type { SavePokemon, SaveSnapshot } from "@/lib/saveSync";
+import type { InventoryCategory, MoveCategory } from "@/types/randomlocke";
+import type { SaveBagItem, SavePokemon, SaveSnapshot } from "@/lib/saveSync";
 
 export type SaveReaderParseResult =
   | { ok: true; snapshot: SaveSnapshot }
@@ -32,9 +32,14 @@ export function validateSaveSnapshot(value: unknown): SaveReaderParseResult {
   const party = value.party.map((entry) => parseSavePokemon(entry, "party"));
   const boxes = value.boxes.map((entry) => parseSavePokemon(entry, "box"));
   const invalid = [...party, ...boxes].find((entry) => !entry.ok);
+  const bag = Array.isArray(value.bag) ? value.bag.map(parseSaveBagItem) : [];
+  const invalidBagItem = bag.find((entry) => !entry.ok);
 
   if (invalid && !invalid.ok) {
     return { ok: false, error: invalid.error };
+  }
+  if (invalidBagItem && !invalidBagItem.ok) {
+    return { ok: false, error: invalidBagItem.error };
   }
 
   return {
@@ -44,6 +49,7 @@ export function validateSaveSnapshot(value: unknown): SaveReaderParseResult {
       game,
       party: party.filter(isParsedPokemon).map((entry) => entry.pokemon),
       boxes: boxes.filter(isParsedPokemon).map((entry) => entry.pokemon),
+      bag: bag.filter(isParsedBagItem).map((entry) => entry.item),
       errors: Array.isArray(value.errors) ? value.errors.filter(isString) : [],
     },
   };
@@ -87,6 +93,39 @@ function parseSavePokemon(
 function isParsedPokemon(
   value: ReturnType<typeof parseSavePokemon>,
 ): value is { ok: true; pokemon: SavePokemon } {
+  return value.ok;
+}
+
+function parseSaveBagItem(
+  value: unknown,
+): { ok: true; item: SaveBagItem } | { ok: false; error: string } {
+  if (!isRecord(value)) {
+    return { ok: false, error: "Una entrada de bolsa no es un objeto." };
+  }
+
+  const name = getString(value.name);
+  const quantity = getNumber(value.quantity);
+  const category = parseInventoryCategory(value.category);
+
+  if (!name || quantity === undefined || quantity < 1 || !category) {
+    return { ok: false, error: "Una entrada de bolsa no incluye nombre, cantidad o categoria valida." };
+  }
+
+  return {
+    ok: true,
+    item: {
+      itemId: getNumber(value.itemId),
+      name,
+      quantity,
+      category,
+      pocket: getString(value.pocket) ?? "",
+    },
+  };
+}
+
+function isParsedBagItem(
+  value: ReturnType<typeof parseSaveBagItem>,
+): value is { ok: true; item: SaveBagItem } {
   return value.ok;
 }
 
@@ -139,6 +178,18 @@ function parseMoveCategory(value: unknown): MoveCategory {
   return value === "physical" || value === "special" || value === "status" || value === "unknown"
     ? value
     : "unknown";
+}
+
+function parseInventoryCategory(value: unknown): InventoryCategory | undefined {
+  return value === "tm" ||
+    value === "held_item" ||
+    value === "medicine" ||
+    value === "berry" ||
+    value === "battle_item" ||
+    value === "key_item" ||
+    value === "other"
+    ? value
+    : undefined;
 }
 
 function isMove(value: ReturnType<typeof parseMove>): value is NonNullable<ReturnType<typeof parseMove>> {

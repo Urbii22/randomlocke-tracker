@@ -33,6 +33,7 @@ catch (Exception ex)
         "Pokemon Y",
         [],
         [],
+        [],
         [$"No se pudo leer el save: {ex.GetType().Name}"]
     );
     Console.WriteLine(JsonSerializer.Serialize(errorSnapshot, JsonOptions.Value));
@@ -97,7 +98,7 @@ internal static class SaveSnapshotReader
             }
         }
 
-        return new SaveSnapshot(DateTimeOffset.UtcNow, "Pokemon Y", party, boxes, []);
+        return new SaveSnapshot(DateTimeOffset.UtcNow, "Pokemon Y", party, boxes, GetBag(save), []);
     }
 
     private static bool IsEmpty(PKM pokemon) => pokemon.Species == 0;
@@ -188,6 +189,63 @@ internal static class SaveSnapshotReader
         return new SaveMove(moveName, "", "unknown", null, null);
     }
 
+    private static SaveBagItem[] GetBag(SaveFile save)
+    {
+        var itemNames = GameInfo.Strings.Item;
+        var items = new List<SaveBagItem>();
+
+        foreach (var pouch in save.Inventory.Pouches)
+        {
+            foreach (var item in pouch.Items)
+            {
+                if (item.Index <= 0 || item.Count <= 0)
+                    continue;
+
+                var name = item.Index < itemNames.Count ? itemNames[item.Index] : $"Item {item.Index}";
+                if (string.IsNullOrWhiteSpace(name))
+                    name = $"Item {item.Index}";
+
+                items.Add(new SaveBagItem(
+                    item.Index,
+                    name,
+                    item.Count,
+                    MapInventoryCategory(pouch.Type),
+                    MapPocketName(pouch.Type)
+                ));
+            }
+        }
+
+        return [.. items];
+    }
+
+    private static string MapInventoryCategory(InventoryType type)
+    {
+        return type switch
+        {
+            InventoryType.TMHMs => "tm",
+            InventoryType.Medicine => "medicine",
+            InventoryType.Berries => "berry",
+            InventoryType.BattleItems => "battle_item",
+            InventoryType.KeyItems => "key_item",
+            _ => "other",
+        };
+    }
+
+    private static string MapPocketName(InventoryType type)
+    {
+        return type switch
+        {
+            InventoryType.Items => "Objetos",
+            InventoryType.KeyItems => "Objetos clave",
+            InventoryType.TMHMs => "MT/MO",
+            InventoryType.Medicine => "Medicina",
+            InventoryType.Berries => "Bayas",
+            InventoryType.Balls => "Pokeballs",
+            InventoryType.BattleItems => "Combate",
+            _ => type.ToString(),
+        };
+    }
+
     private static string TranslateType(int typeId, IReadOnlyList<string> fallback)
     {
         return typeId switch
@@ -220,6 +278,7 @@ internal sealed record SaveSnapshot(
     string Game,
     IReadOnlyList<SavePokemon> Party,
     IReadOnlyList<SavePokemon> Boxes,
+    IReadOnlyList<SaveBagItem> Bag,
     IReadOnlyList<string> Errors
 );
 
@@ -253,6 +312,14 @@ internal sealed record SaveMove(
     string Category,
     int? Power,
     int? Accuracy
+);
+
+internal sealed record SaveBagItem(
+    int ItemId,
+    string Name,
+    int Quantity,
+    string Category,
+    string Pocket
 );
 
 internal static class JsonOptions

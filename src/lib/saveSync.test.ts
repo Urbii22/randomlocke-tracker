@@ -53,6 +53,7 @@ function snapshot(overrides: Partial<SaveSnapshot> = {}): SaveSnapshot {
         moves: [],
       },
     ],
+    bag: [],
     errors: [],
     ...overrides,
   };
@@ -148,6 +149,91 @@ describe("save sync", () => {
       "forbidden",
     );
     expect(result.report.forbidden).toBe(1);
+  });
+
+  it("syncs bag items from the save without deleting manual inventory", () => {
+    const state = createInitialGameState();
+    state.inventory = [
+      {
+        id: "manual-note",
+        name: "Objeto manual",
+        category: "other",
+        quantity: 1,
+        location: "Ruta 5",
+        status: "reserved",
+        holderPokemonId: "",
+        notes: "No sale del save",
+      },
+    ];
+
+    const result = mergeSaveSnapshot(
+      state,
+      snapshot({
+        bag: [
+          {
+            itemId: 17,
+            name: "Potion",
+            quantity: 2,
+            category: "medicine",
+            pocket: "Medicina",
+          },
+        ],
+      }),
+    );
+
+    expect(result.state.inventory).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "bag-item-17",
+          name: "Potion",
+          quantity: 2,
+          category: "medicine",
+          location: "Save: Medicina",
+          status: "available",
+        }),
+        expect.objectContaining({ id: "manual-note", notes: "No sale del save" }),
+      ]),
+    );
+    expect(result.report).toMatchObject({ inventoryAdded: 1, inventoryUpdated: 0 });
+  });
+
+  it("updates existing bag items while preserving notes", () => {
+    const state = createInitialGameState();
+    state.inventory = [
+      {
+        id: "bag-item-17",
+        name: "Potion",
+        category: "medicine",
+        quantity: 1,
+        location: "Manual",
+        status: "reserved",
+        holderPokemonId: "",
+        notes: "Comprar mas",
+      },
+    ];
+
+    const result = mergeSaveSnapshot(
+      state,
+      snapshot({
+        bag: [
+          {
+            itemId: 17,
+            name: "Potion",
+            quantity: 7,
+            category: "medicine",
+            pocket: "Medicina",
+          },
+        ],
+      }),
+    );
+
+    expect(result.state.inventory.find((item) => item.id === "bag-item-17")).toMatchObject({
+      quantity: 7,
+      location: "Save: Medicina",
+      status: "available",
+      notes: "Comprar mas",
+    });
+    expect(result.report).toMatchObject({ inventoryAdded: 0, inventoryUpdated: 1 });
   });
 
   it("reports invalid reader JSON", () => {

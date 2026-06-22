@@ -1,6 +1,8 @@
 import { getPokemonDefensiveProfile, getTeamCombatProfile } from "@/lib/combat";
 import type {
   GameState,
+  InventoryCategory,
+  InventoryItem,
   Pokemon,
   PokemonMove,
   PokemonSaveSource,
@@ -23,11 +25,20 @@ export type SavePokemon = {
   moves: PokemonMove[];
 };
 
+export type SaveBagItem = {
+  itemId?: number;
+  name: string;
+  quantity: number;
+  category: InventoryCategory;
+  pocket: string;
+};
+
 export type SaveSnapshot = {
   readAt: string;
   game: string;
   party: SavePokemon[];
   boxes: SavePokemon[];
+  bag: SaveBagItem[];
   errors: string[];
 };
 
@@ -40,6 +51,8 @@ export type SaveSyncReport = {
   readAt: string;
   added: number;
   updated: number;
+  inventoryAdded: number;
+  inventoryUpdated: number;
   forbidden: number;
   candidatesBetterThanSixth: Pokemon[];
   warnings: SaveSyncWarning[];
@@ -157,9 +170,11 @@ export function mergeSaveSnapshot(state: GameState, snapshot: SaveSnapshot): Sav
 
   const untouchedPokemon = state.pokemon.filter((pokemon) => !seenIds.has(pokemon.id));
   const pokemon = [...syncedPokemon, ...untouchedPokemon];
+  const inventorySync = mergeSaveBag(state.inventory, snapshot.bag);
   const nextState: GameState = {
     ...state,
     pokemon,
+    inventory: inventorySync.inventory,
     settings: {
       ...state.settings,
       lastSaveSyncAt: snapshot.readAt,
@@ -173,6 +188,8 @@ export function mergeSaveSnapshot(state: GameState, snapshot: SaveSnapshot): Sav
       readAt: snapshot.readAt,
       added,
       updated,
+      inventoryAdded: inventorySync.added,
+      inventoryUpdated: inventorySync.updated,
       forbidden,
       candidatesBetterThanSixth: getCandidatesBetterThanSixth(pokemon),
       warnings: buildSaveSyncWarnings(pokemon),
@@ -227,6 +244,67 @@ function normalizeSavePokemon(pokemon: SavePokemon): SavePokemon & { types: stri
     item: pokemon.item ?? "",
     types: pokemon.types ?? [],
     moves: pokemon.moves.slice(0, 4),
+  };
+}
+
+function mergeSaveBag(
+  currentInventory: InventoryItem[],
+  bag: SaveBagItem[],
+): { inventory: InventoryItem[]; added: number; updated: number } {
+  const usedIds = new Set(currentInventory.map((item) => item.id));
+  const existingById = new Map(currentInventory.map((item) => [item.id, item]));
+  const existingManualBagByName = new Map(
+    currentInventory
+      .filter((item) => !item.holderPokemonId)
+      .map((item) => [normalizeKey(item.name), item]),
+  );
+  const syncedIds = new Set<string>();
+  let added = 0;
+  let updated = 0;
+
+  const syncedInventory = bag.map((bagItem) => {
+    const baseId = getInventoryBaseId(bagItem);
+    const existing = existingById.get(baseId) ?? existingManualBagByName.get(normalizeKey(bagItem.name));
+    const id = existing?.id ?? createUniqueInventoryId(baseId, usedIds);
+
+    syncedIds.add(existing?.id ?? id);
+    if (existing) {
+      updated += 1;
+    } else {
+      added += 1;
+    }
+
+    return {
+      ...(existing ?? createBagInventoryDefaults(id)),
+      id: existing?.id ?? id,
+      name: bagItem.name,
+      category: bagItem.category,
+      quantity: bagItem.quantity,
+      location: bagItem.pocket ? `Save: ${bagItem.pocket}` : "Save",
+      status: "available",
+      holderPokemonId: "",
+      notes: existing?.notes ?? "",
+    } satisfies InventoryItem;
+  });
+
+  const untouchedInventory = currentInventory.filter((item) => !syncedIds.has(item.id));
+  return {
+    inventory: [...syncedInventory, ...untouchedInventory],
+    added,
+    updated,
+  };
+}
+
+function createBagInventoryDefaults(id: string): InventoryItem {
+  return {
+    id,
+    name: "",
+    category: "other",
+    quantity: 1,
+    location: "",
+    status: "available",
+    holderPokemonId: "",
+    notes: "",
   };
 }
 
@@ -285,6 +363,23 @@ function getCandidatesBetterThanSixth(pokemon: Pokemon[]): Pokemon[] {
 
 function createStablePokemonId(pokemon: SavePokemon, usedIds: Set<string>): string {
   const base = `save-${slugify(pokemon.nickname || pokemon.species)}-${slugify(pokemon.species)}`;
+  let id = base;
+  let suffix = 2;
+
+  while (usedIds.has(id)) {
+    id = `${base}-${suffix}`;
+    suffix += 1;
+  }
+
+  usedIds.add(id);
+  return id;
+}
+
+function getInventoryBaseId(item: SaveBagItem): string {
+  return item.itemId ? `bag-item-${item.itemId}` : `bag-${slugify(item.name)}`;
+}
+
+function createUniqueInventoryId(base: string, usedIds: Set<string>): string {
   let id = base;
   let suffix = 2;
 

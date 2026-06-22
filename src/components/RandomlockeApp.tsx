@@ -1356,10 +1356,12 @@ function SettingsPanel({
 function SaveSyncReportPanel({ report }: { report: SaveSyncReport }) {
   return (
     <div className="grid gap-3 rounded-md border border-stone-800 bg-stone-900 p-3">
-      <div className="grid gap-2 sm:grid-cols-4">
+      <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
         <SideStat label="Leidos" value={new Date(report.readAt).toLocaleTimeString()} />
-        <SideStat label="Nuevos" value={report.added} />
-        <SideStat label="Actualizados" value={report.updated} />
+        <SideStat label="Pokemon nuevos" value={report.added} />
+        <SideStat label="Pokemon act." value={report.updated} />
+        <SideStat label="Obj. nuevos" value={report.inventoryAdded} />
+        <SideStat label="Obj. act." value={report.inventoryUpdated} />
         <SideStat label="Prohibidos" value={report.forbidden} />
       </div>
 
