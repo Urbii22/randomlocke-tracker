@@ -184,6 +184,7 @@ function parseInventoryCategory(value: unknown): InventoryCategory | undefined {
   return value === "tm" ||
     value === "held_item" ||
     value === "medicine" ||
+    value === "pokeball" ||
     value === "berry" ||
     value === "battle_item" ||
     value === "key_item" ||

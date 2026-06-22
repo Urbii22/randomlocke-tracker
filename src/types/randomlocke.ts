@@ -21,6 +21,7 @@ export type InventoryCategory =
   | "tm"
   | "held_item"
   | "medicine"
+  | "pokeball"
   | "berry"
   | "battle_item"
   | "key_item"

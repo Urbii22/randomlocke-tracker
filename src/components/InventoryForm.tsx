@@ -19,6 +19,7 @@ export const inventoryCategoryLabels: Record<InventoryCategory, string> = {
   tm: "MT",
   held_item: "Objeto equipado",
   medicine: "Medicina",
+  pokeball: "Pokeball",
   berry: "Baya",
   battle_item: "Objeto combate",
   key_item: "Objeto clave",

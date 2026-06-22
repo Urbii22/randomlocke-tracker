@@ -7,6 +7,7 @@ import {
   createRouteDraft,
   getNextBattle,
   isNormalCaptureLimitReached,
+  sortInventoryItems,
   upsertRoute,
   upsertInventoryItem,
   validateInventoryItemDraft,
@@ -176,5 +177,37 @@ describe("Randomlocke game state", () => {
     expect(next.inventory).toHaveLength(1);
     expect(next.inventory[0]).toMatchObject({ id: "item-tm01", category: "tm" });
     expect(next.updatedAt).not.toBe(state.updatedAt);
+  });
+
+  it("sorts inventory by configurable category groups", () => {
+    const items = [
+      { id: "berry", name: "Baya Ziuela", category: "berry" as const, quantity: 2, location: "", status: "available" as const, holderPokemonId: "", notes: "" },
+      { id: "tm", name: "MT13 Rayo Hielo", category: "tm" as const, quantity: 1, location: "", status: "available" as const, holderPokemonId: "", notes: "" },
+      { id: "ball", name: "Ultra Ball", category: "pokeball" as const, quantity: 10, location: "", status: "available" as const, holderPokemonId: "", notes: "" },
+      { id: "held", name: "Restos", category: "held_item" as const, quantity: 1, location: "", status: "available" as const, holderPokemonId: "", notes: "" },
+    ];
+
+    expect(sortInventoryItems(items, "tm_first").map((item) => item.id)).toEqual([
+      "tm",
+      "held",
+      "ball",
+      "berry",
+    ]);
+    expect(sortInventoryItems(items, "berry_first").map((item) => item.id)).toEqual([
+      "berry",
+      "tm",
+      "held",
+      "ball",
+    ]);
+    expect(sortInventoryItems(items, "pokeball_first").map((item) => item.id)[0]).toBe("ball");
+  });
+
+  it("sorts inventory alphabetically when requested", () => {
+    const items = [
+      { id: "z", name: "Zumo de baya", category: "medicine" as const, quantity: 1, location: "", status: "available" as const, holderPokemonId: "", notes: "" },
+      { id: "a", name: "Antidoto", category: "medicine" as const, quantity: 1, location: "", status: "available" as const, holderPokemonId: "", notes: "" },
+    ];
+
+    expect(sortInventoryItems(items, "name_asc").map((item) => item.id)).toEqual(["a", "z"]);
   });
 });

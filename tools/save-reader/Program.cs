@@ -226,6 +226,7 @@ internal static class SaveSnapshotReader
         {
             InventoryType.TMHMs => "tm",
             InventoryType.Medicine => "medicine",
+            InventoryType.Balls => "pokeball",
             InventoryType.Berries => "berry",
             InventoryType.BattleItems => "battle_item",
             InventoryType.KeyItems => "key_item",

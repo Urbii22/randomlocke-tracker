@@ -47,8 +47,10 @@ import {
 import { cn } from "@/lib/cn";
 import {
   calculateDashboardSummary,
+  type InventorySortPreset,
   isNormalCaptureLimitReached,
   pokemonStatusLabels,
+  sortInventoryItems,
   updatePokemonStatus,
   upsertInventoryItem,
   upsertRoute,
@@ -89,6 +91,32 @@ const navItems: { view: View; label: string; icon: typeof Gauge }[] = [
   { view: "dead", label: "Muertos", icon: Skull },
   { view: "settings", label: "Ajustes", icon: Settings },
 ];
+
+const inventorySortLabels: Record<InventorySortPreset, string> = {
+  tm_first: "MT/MO primero",
+  held_first: "Equipables primero",
+  medicine_first: "Medicina primero",
+  pokeball_first: "Pokeballs primero",
+  berry_first: "Bayas primero",
+  name_asc: "Nombre A-Z",
+};
+
+const inventorySortOptions = Object.entries(inventorySortLabels) as [
+  InventorySortPreset,
+  string,
+][];
+
+function groupInventoryByCategory(items: InventoryItem[]) {
+  const categories = Object.keys(inventoryCategoryLabels) as InventoryCategory[];
+
+  return categories.reduce(
+    (groups, category) => ({
+      ...groups,
+      [category]: items.filter((item) => item.category === category),
+    }),
+    {} as Record<InventoryCategory, InventoryItem[]>,
+  );
+}
 
 const typeVisuals: Record<
   PokemonType,
@@ -196,6 +224,7 @@ export function RandomlockeApp() {
   const [isInventoryPanelOpen, setIsInventoryPanelOpen] = useState(false);
   const [filter, setFilter] = useState<PokemonStatus | "all">("all");
   const [inventoryFilter, setInventoryFilter] = useState<InventoryCategory | "all">("all");
+  const [inventorySort, setInventorySort] = useState<InventorySortPreset>("tm_first");
   const [importText, setImportText] = useState("");
   const [isSyncingSave, setIsSyncingSave] = useState(false);
   const [saveSyncError, setSaveSyncError] = useState("");
@@ -218,6 +247,16 @@ export function RandomlockeApp() {
     return game.state.inventory.filter((item) => item.category === inventoryFilter);
   }, [game.state.inventory, inventoryFilter]);
 
+  const sortedInventory = useMemo(
+    () => sortInventoryItems(filteredInventory, inventorySort),
+    [filteredInventory, inventorySort],
+  );
+
+  const sortedInventoryForExport = useMemo(
+    () => sortInventoryItems(game.state.inventory, inventorySort),
+    [game.state.inventory, inventorySort],
+  );
+
   function setPokemonStatus(pokemonId: string, status: PokemonStatus) {
     game.setState((state) => updatePokemonStatus(state, pokemonId, status));
   }
@@ -238,11 +277,33 @@ export function RandomlockeApp() {
   }
 
   function exportJsonFile() {
-    const blob = new Blob([game.exportJson()], { type: "application/json" });
+    downloadJsonFile("randomlocke-tracker.json", JSON.parse(game.exportJson()));
+  }
+
+  function exportPokemonJsonFile() {
+    downloadJsonFile("randomlocke-pokemon.json", {
+      exportedAt: new Date().toISOString(),
+      count: game.state.pokemon.length,
+      pokemon: game.state.pokemon,
+    });
+  }
+
+  function exportInventoryJsonFile() {
+    downloadJsonFile("randomlocke-bolsa.json", {
+      exportedAt: new Date().toISOString(),
+      count: sortedInventoryForExport.length,
+      sort: inventorySortLabels[inventorySort],
+      groups: groupInventoryByCategory(sortedInventoryForExport),
+      items: sortedInventoryForExport,
+    });
+  }
+
+  function downloadJsonFile(fileName: string, data: unknown) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "randomlocke-tracker.json";
+    link.download = fileName;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -385,6 +446,7 @@ export function RandomlockeApp() {
                 pokemon={filteredPokemon}
                 filter={filter}
                 onFilterChange={setFilter}
+                onExport={exportPokemonJsonFile}
                 onAdd={() => {
                   setEditing(undefined);
                   setIsPokemonPanelOpen(true);
@@ -437,10 +499,13 @@ export function RandomlockeApp() {
           {view === "inventory" ? (
             <>
               <InventoryTable
-                items={filteredInventory}
+                items={sortedInventory}
                 pokemon={game.state.pokemon}
                 filter={inventoryFilter}
                 onFilterChange={setInventoryFilter}
+                sort={inventorySort}
+                onSortChange={setInventorySort}
+                onExport={exportInventoryJsonFile}
                 onAdd={() => {
                   setEditingInventoryItem(undefined);
                   setIsInventoryPanelOpen(true);
@@ -1169,10 +1234,11 @@ function BattleCard({ title, battle, icon: Icon }: { title: string; battle?: Bat
   );
 }
 
-function PokemonTable({ pokemon, filter, onFilterChange, onAdd, onEdit, onStatusChange }: {
+function PokemonTable({ pokemon, filter, onFilterChange, onExport, onAdd, onEdit, onStatusChange }: {
   pokemon: Pokemon[];
   filter: PokemonStatus | "all";
   onFilterChange: (status: PokemonStatus | "all") => void;
+  onExport: () => void;
   onAdd: () => void;
   onEdit: (pokemon: Pokemon) => void;
   onStatusChange: (pokemonId: string, status: PokemonStatus) => void;
@@ -1183,6 +1249,10 @@ function PokemonTable({ pokemon, filter, onFilterChange, onAdd, onEdit, onStatus
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-black text-balance text-stone-50">Pokémon registrados</h2>
         <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onExport} className="secondary-button">
+            <Download size={16} aria-hidden="true" />
+            Exportar JSON
+          </button>
           <button type="button" onClick={onAdd} className="action-button">
             <Plus size={16} aria-hidden="true" />
             Añadir Pokémon
@@ -1293,6 +1363,9 @@ function InventoryTable({
   pokemon,
   filter,
   onFilterChange,
+  sort,
+  onSortChange,
+  onExport,
   onAdd,
   onEdit,
 }: {
@@ -1300,6 +1373,9 @@ function InventoryTable({
   pokemon: Pokemon[];
   filter: InventoryCategory | "all";
   onFilterChange: (category: InventoryCategory | "all") => void;
+  sort: InventorySortPreset;
+  onSortChange: (sort: InventorySortPreset) => void;
+  onExport: () => void;
   onAdd: () => void;
   onEdit: (item: InventoryItem) => void;
 }) {
@@ -1321,6 +1397,22 @@ function InventoryTable({
             <Plus size={16} aria-hidden="true" />
             Añadir objeto
           </button>
+          <button type="button" onClick={onExport} className="secondary-button">
+            <Download size={16} aria-hidden="true" />
+            Exportar JSON
+          </button>
+          <select
+            value={sort}
+            onChange={(event) => onSortChange(event.target.value as InventorySortPreset)}
+            className="rounded-md border border-stone-700 bg-stone-950 px-3 py-2 text-sm font-semibold text-stone-100"
+            aria-label="Ordenar bolsa"
+          >
+            {inventorySortOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
           <select
             value={filter}
             onChange={(event) => onFilterChange(event.target.value as InventoryCategory | "all")}

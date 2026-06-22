@@ -5,6 +5,7 @@ import type {
   BattleType,
   DashboardSummary,
   GameState,
+  InventoryCategory,
   InventoryItem,
   InventoryItemDraft,
   Pokemon,
@@ -26,6 +27,56 @@ export const pokemonStatusLabels: Record<PokemonStatus, string> = {
   forbidden: "Prohibido",
   shiny_extra: "Shiny extra",
 };
+
+export type InventorySortPreset =
+  | "tm_first"
+  | "held_first"
+  | "medicine_first"
+  | "pokeball_first"
+  | "berry_first"
+  | "name_asc";
+
+export const defaultInventoryCategoryOrder: InventoryCategory[] = [
+  "tm",
+  "held_item",
+  "medicine",
+  "pokeball",
+  "berry",
+  "battle_item",
+  "key_item",
+  "other",
+];
+
+const inventoryCategoryOrderByPreset: Record<InventorySortPreset, InventoryCategory[]> = {
+  tm_first: defaultInventoryCategoryOrder,
+  held_first: ["held_item", "tm", "medicine", "pokeball", "berry", "battle_item", "key_item", "other"],
+  medicine_first: ["medicine", "tm", "held_item", "pokeball", "berry", "battle_item", "key_item", "other"],
+  pokeball_first: ["pokeball", "tm", "held_item", "medicine", "berry", "battle_item", "key_item", "other"],
+  berry_first: ["berry", "tm", "held_item", "medicine", "pokeball", "battle_item", "key_item", "other"],
+  name_asc: defaultInventoryCategoryOrder,
+};
+
+export function sortInventoryItems(
+  items: InventoryItem[],
+  preset: InventorySortPreset,
+): InventoryItem[] {
+  const categoryOrder = inventoryCategoryOrderByPreset[preset];
+  const categoryRank = new Map(categoryOrder.map((category, index) => [category, index]));
+
+  return [...items].sort((left, right) => {
+    if (preset === "name_asc") {
+      return left.name.localeCompare(right.name, "es", { sensitivity: "base" });
+    }
+
+    const categoryDelta =
+      (categoryRank.get(left.category) ?? categoryOrder.length) -
+      (categoryRank.get(right.category) ?? categoryOrder.length);
+
+    if (categoryDelta !== 0) return categoryDelta;
+
+    return left.name.localeCompare(right.name, "es", { sensitivity: "base" });
+  });
+}
 
 export function createInitialGameState(): GameState {
   return structuredClone(seedGameState);
