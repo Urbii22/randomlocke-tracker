@@ -692,16 +692,11 @@ function TypeTargetButton({
         "relative flex h-8 min-w-0 items-center justify-center gap-1 rounded-sm border px-1 font-black outline-none ring-offset-2 ring-offset-stone-950 transition",
         visual.classes,
         selected
-          ? "scale-[1.07] !border-amber-50 !bg-amber-300/55 !text-stone-950 shadow-[0_0_0_2px_rgba(254,249,195,0.95),0_0_20px_rgba(253,230,138,0.35)] ring-2 ring-amber-100"
+          ? "shadow-[0_0_0_3px_rgba(255,255,255,0.95)] ring-2 ring-white"
           : "opacity-75 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-stone-400",
       )}
       title={`${type}: ${counterCount} ataques eficaces`}
     >
-      {selected ? (
-        <span className="absolute -right-1 -top-1 flex size-3 items-center justify-center rounded-full border border-stone-950 bg-amber-100 text-[0.5rem] font-black text-stone-950">
-          ✓
-        </span>
-      ) : null}
       <Icon size={13} aria-hidden="true" />
       <span className="sr-only">{type}</span>
       {counterCount > 0 ? (
