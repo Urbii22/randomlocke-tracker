@@ -580,9 +580,20 @@ function CombatHub({
           <div className="rounded-md border border-stone-800 bg-stone-950 p-2.5">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-xs font-black uppercase text-stone-300">Tipo rival</h3>
-              <span className="font-mono text-xs font-bold text-stone-500">
-                {selectedTargetTypes.length > 0 ? `${counterMoves.length} counters` : "elige tipos"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-stone-500">
+                  {selectedTargetTypes.length > 0 ? `${counterMoves.length} counters` : "elige tipos"}
+                </span>
+                {selectedTargetTypes.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTargetTypes([])}
+                    className="rounded-sm border border-stone-700 bg-stone-900 px-2 py-1 text-[0.65rem] font-black uppercase text-stone-300 hover:border-amber-200 hover:text-amber-100"
+                  >
+                    Limpiar
+                  </button>
+                ) : null}
+              </div>
             </div>
             <div
               className="mt-2 grid gap-1.5"
@@ -678,14 +689,19 @@ function TypeTargetButton({
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "flex h-8 min-w-0 items-center justify-center gap-1 rounded-sm border px-1 font-black outline-none ring-offset-2 ring-offset-stone-950 transition",
+        "relative flex h-8 min-w-0 items-center justify-center gap-1 rounded-sm border px-1 font-black outline-none ring-offset-2 ring-offset-stone-950 transition",
         visual.classes,
         selected
-          ? "scale-[1.04] !border-amber-100 !bg-amber-300/35 !text-amber-50 shadow-[0_0_0_1px_rgba(253,230,138,0.9),0_0_18px_rgba(253,230,138,0.22)] ring-2 ring-amber-200"
+          ? "scale-[1.07] !border-amber-50 !bg-amber-300/55 !text-stone-950 shadow-[0_0_0_2px_rgba(254,249,195,0.95),0_0_20px_rgba(253,230,138,0.35)] ring-2 ring-amber-100"
           : "opacity-75 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-stone-400",
       )}
       title={`${type}: ${counterCount} ataques eficaces`}
     >
+      {selected ? (
+        <span className="absolute -right-1 -top-1 flex size-3 items-center justify-center rounded-full border border-stone-950 bg-amber-100 text-[0.5rem] font-black text-stone-950">
+          ✓
+        </span>
+      ) : null}
       <Icon size={13} aria-hidden="true" />
       <span className="sr-only">{type}</span>
       {counterCount > 0 ? (
