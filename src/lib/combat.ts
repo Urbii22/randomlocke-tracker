@@ -222,6 +222,17 @@ export function isMoveSuperEffectiveAgainstType(
   return getDefensiveMultiplier(moveType, [defenderType]) > 1;
 }
 
+export function getMoveEffectivenessAgainstTypes(
+  moveType: PokemonType | undefined,
+  defenderTypes: PokemonType[],
+): number {
+  if (!moveType || defenderTypes.length === 0) {
+    return 1;
+  }
+
+  return getDefensiveMultiplier(moveType, defenderTypes);
+}
+
 export function getPokemonDefensiveProfile(pokemon: Pokemon): CombatMember["defensiveProfile"] {
   const defenderTypes = pokemon.types
     .map(normalizePokemonType)

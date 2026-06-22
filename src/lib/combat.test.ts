@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Pokemon } from "@/types/randomlocke";
 import {
+  getMoveEffectivenessAgainstTypes,
   getMoveType,
   getPokemonDefensiveProfile,
   getTeamCombatProfile,
@@ -114,5 +115,12 @@ describe("combat helpers", () => {
     expect(isMoveSuperEffectiveAgainstType("Tierra", "Eléctrico")).toBe(true);
     expect(isMoveSuperEffectiveAgainstType("Roca", "Eléctrico")).toBe(false);
     expect(isMoveSuperEffectiveAgainstType(undefined, "Eléctrico")).toBe(false);
+  });
+
+  it("calculates combined effectiveness for dual type targets", () => {
+    expect(getMoveEffectivenessAgainstTypes("Tierra", ["Eléctrico", "Roca"])).toBe(4);
+    expect(getMoveEffectivenessAgainstTypes("Roca", ["Fuego", "Volador"])).toBe(4);
+    expect(getMoveEffectivenessAgainstTypes("Eléctrico", ["Agua", "Tierra"])).toBe(0);
+    expect(getMoveEffectivenessAgainstTypes(undefined, ["Agua", "Tierra"])).toBe(1);
   });
 });
