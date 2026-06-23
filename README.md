@@ -179,12 +179,14 @@ Despues de fusionar, la app recalcula equipo/caja y muestra en Ajustes:
 - candidatos de caja con mas valor manual que el sexto miembro del equipo
 - alertas defensivas por debilidades repetidas
 - alertas de debilidad 4x
+- busqueda de rival por Pokedex estandar para resaltar counters del equipo contra sus tipos
 
 ## Limitaciones conocidas
 
 - `PKHeX.Core` puede cambiar nombres de APIs entre versiones; si falla la compilacion, el ajuste deberia concentrarse en `tools/save-reader/Program.cs`.
 - Los tipos de Pokemon salen de la tabla normal de especie, no del randomizer. Esto encaja con la regla actual de la run.
 - Los movimientos se leen desde el save y sus datos estandar de Gen 1-6 se completan desde `tools/save-reader/MoveMetadata.cs`. Si una ROM randomiza tipo/potencia/categoria de movimientos, hara falta importar overrides del randomizer o leer la tabla modificada de la ROM.
+- La Pokedex de combate usa tipos y stats base estandar Gen 1-6 desde `src/data/pokedex.ts`; no refleja randomizacion de tipos/base stats si alguna run la activa.
 
 ## Pendiente para v2
 

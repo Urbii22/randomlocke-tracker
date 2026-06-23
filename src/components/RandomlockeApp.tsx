@@ -37,10 +37,12 @@ import {
   Zap,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { pokedexEntries, type PokedexEntry } from "@/data/pokedex";
 import { useLocalStorageGameState } from "@/hooks/useLocalStorageGameState";
 import {
   getMoveEffectivenessAgainstTypes,
   getTeamCombatProfile,
+  normalizePokemonType,
   pokemonTypes,
   type PokemonType,
 } from "@/lib/combat";
@@ -584,6 +586,9 @@ function CombatHub({
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
   const [selectedTargetTypes, setSelectedTargetTypes] = useState<PokemonType[]>([]);
+  const [pokedexQuery, setPokedexQuery] = useState("");
+  const [selectedOpponent, setSelectedOpponent] = useState<PokedexEntry | undefined>();
+  const pokedexMatches = useMemo(() => getPokedexMatches(pokedexQuery), [pokedexQuery]);
   const dangerRows = profile.defenseRows
     .filter((row) => row.weakTo.length > 0)
     .toSorted((a, b) => b.weakTo.length - a.weakTo.length);
@@ -656,14 +661,38 @@ function CombatHub({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setSelectedTargetTypes([])}
-                  disabled={selectedTargetTypes.length === 0}
+                  onClick={() => {
+                    setSelectedTargetTypes([]);
+                    setSelectedOpponent(undefined);
+                    setPokedexQuery("");
+                  }}
+                  disabled={selectedTargetTypes.length === 0 && !selectedOpponent && !pokedexQuery}
                   className="rounded-sm border border-stone-700 bg-stone-900 px-1.5 py-0.5 text-[0.58rem] font-black uppercase text-stone-400 hover:border-amber-200 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-stone-700 disabled:hover:text-stone-400"
                 >
                   Limpiar
                 </button>
               </div>
             </div>
+            <OpponentSearchPanel
+              query={pokedexQuery}
+              matches={pokedexMatches}
+              selectedOpponent={selectedOpponent}
+              onQueryChange={(query) => {
+                setPokedexQuery(query);
+                if (!query.trim()) {
+                  setSelectedOpponent(undefined);
+                }
+              }}
+              onSelect={(entry) => {
+                setSelectedOpponent(entry);
+                setPokedexQuery(entry.name);
+                setSelectedTargetTypes(
+                  entry.types
+                    .map(normalizeTypeForUi)
+                    .filter((type): type is PokemonType => Boolean(type)),
+                );
+              }}
+            />
             <div
               className="mt-2 grid gap-1.5"
               style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}
@@ -674,7 +703,10 @@ function CombatHub({
                   type={type}
                   selected={selectedTargetTypes.includes(type)}
                   counterCount={getCounterCount(profile.members, [type])}
-                  onClick={() => setSelectedTargetTypes((current) => toggleTargetType(current, type))}
+                  onClick={() => {
+                    setSelectedOpponent(undefined);
+                    setSelectedTargetTypes((current) => toggleTargetType(current, type));
+                  }}
                 />
               ))}
             </div>
@@ -736,6 +768,98 @@ function CombatSignal({
       <p className="mt-1 text-xs font-semibold opacity-80">{detail}</p>
     </div>
   );
+}
+
+function OpponentSearchPanel({
+  query,
+  matches,
+  selectedOpponent,
+  onQueryChange,
+  onSelect,
+}: {
+  query: string;
+  matches: PokedexEntry[];
+  selectedOpponent?: PokedexEntry;
+  onQueryChange: (query: string) => void;
+  onSelect: (entry: PokedexEntry) => void;
+}) {
+  return (
+    <div className="mt-2 grid gap-2 rounded-sm border border-stone-800 bg-stone-900 p-2">
+      <label className="grid gap-1 text-[0.65rem] font-black uppercase text-stone-500">
+        Buscar rival
+        <input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Garchomp, Venusaur..."
+          className="h-8 rounded-sm border-stone-700 bg-stone-950 px-2 py-1 text-xs font-semibold normal-case text-stone-100"
+        />
+      </label>
+
+      {selectedOpponent ? <OpponentSummary entry={selectedOpponent} /> : null}
+
+      {!selectedOpponent && query.trim() ? (
+        <div className="grid max-h-32 gap-1 overflow-auto">
+          {matches.length > 0 ? (
+            matches.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => onSelect(entry)}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-sm border border-stone-800 bg-stone-950 px-2 py-1 text-left hover:border-amber-200"
+              >
+                <span className="truncate text-xs font-black text-stone-100">{entry.name}</span>
+                <span className="flex gap-1">
+                  {entry.types.map((type) => (
+                    <TypeBadge key={`${entry.id}-${type}`} type={type} compact />
+                  ))}
+                </span>
+              </button>
+            ))
+          ) : (
+            <span className="text-xs font-semibold text-stone-600">Sin resultados.</span>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function OpponentSummary({ entry }: { entry: PokedexEntry }) {
+  return (
+    <div className="grid gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-black text-stone-50">{entry.name}</p>
+          <p className="font-mono text-[0.62rem] font-bold text-stone-500">#{entry.id}</p>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {entry.types.map((type) => (
+            <TypeBadge key={`${entry.id}-${type}`} type={type} compact />
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-1">
+        <StatChip label="PS" value={entry.stats.hp} />
+        <StatChip label="Atk" value={entry.stats.attack} />
+        <StatChip label="Def" value={entry.stats.defense} />
+        <StatChip label="AtE" value={entry.stats.specialAttack} />
+        <StatChip label="DfE" value={entry.stats.specialDefense} />
+        <StatChip label="Vel" value={entry.stats.speed} />
+      </div>
+    </div>
+  );
+}
+
+function getPokedexMatches(query: string): PokedexEntry[] {
+  const normalized = normalizeSearchText(query);
+
+  if (normalized.length < 2) {
+    return [];
+  }
+
+  return pokedexEntries
+    .filter((entry) => normalizeSearchText(entry.search).includes(normalized))
+    .slice(0, 8);
 }
 
 function TypeTargetButton({
@@ -1269,7 +1393,15 @@ function LegendChip({ className, label }: { className: string; label: string }) 
 }
 
 function normalizeTypeForUi(type: string): PokemonType | undefined {
-  return Object.keys(typeVisuals).find((entry) => entry === type) as PokemonType | undefined;
+  return normalizePokemonType(type) ?? (Object.keys(typeVisuals).find((entry) => entry === type) as PokemonType | undefined);
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 }
 
 function RunHeader({
