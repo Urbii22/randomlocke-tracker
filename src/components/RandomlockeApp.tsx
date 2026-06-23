@@ -807,8 +807,9 @@ function CombatRosterTable({
 }) {
   return (
     <div className="mt-3 overflow-hidden rounded-md border border-stone-800 bg-stone-950">
-      <div className="hidden grid-cols-[1.05fr_1fr_1.6fr_1.5fr_1.15fr_auto] gap-2 border-b border-stone-800 px-2.5 py-2 text-[0.65rem] font-black uppercase text-stone-600 xl:grid">
+      <div className="hidden grid-cols-[1.05fr_1.1fr_0.75fr_1.55fr_1.35fr_1.05fr_auto] gap-2 border-b border-stone-800 px-2.5 py-2 text-[0.65rem] font-black uppercase text-stone-600 xl:grid">
         <span>Pokémon</span>
+        <span>Stats</span>
         <span>Tipos</span>
         <span>Movimientos</span>
         <span>Sufre</span>
@@ -838,8 +839,15 @@ function CombatRosterRow({
   selectedTargetTypes: PokemonType[];
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
+  const [expandedMoveIndex, setExpandedMoveIndex] = useState<number | undefined>();
+  const expandedMove =
+    expandedMoveIndex === undefined ? undefined : member.moveTypes[expandedMoveIndex];
+  const expandedEffectiveness = expandedMove
+    ? getMoveEffectivenessAgainstTypes(expandedMove.type, selectedTargetTypes)
+    : 1;
+
   return (
-    <article className="grid gap-2 px-2.5 py-2.5 xl:grid-cols-[1.05fr_1fr_1.6fr_1.5fr_1.15fr_auto] xl:items-center">
+    <article className="grid gap-2 px-2.5 py-2.5 xl:grid-cols-[1.05fr_1.1fr_0.75fr_1.55fr_1.35fr_1.05fr_auto] xl:items-center">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 xl:block">
         <div className="min-w-0">
           <h3 className="truncate text-base font-black leading-5 text-stone-50">{member.pokemon.nickname}</h3>
@@ -854,25 +862,42 @@ function CombatRosterRow({
         </div>
       </div>
 
+      <CombatStatsStrip stats={member.pokemon.stats} />
+
       <div className="flex flex-wrap gap-1.5">
         {member.pokemon.types.map((type, index) => (
           <TypeBadge key={`${type}-${index}`} type={type} compact />
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-2">
-        {member.moveTypes.map((move, index) => (
-          <MovePill
-            key={`${move.move.name || "move"}-${index}`}
-            move={move.move}
-            type={move.type}
-            effectiveness={getMoveEffectivenessAgainstTypes(move.type, selectedTargetTypes)}
-            isDimmed={
-              selectedTargetTypes.length > 0 &&
-              getMoveEffectivenessAgainstTypes(move.type, selectedTargetTypes) <= 1
-            }
+      <div className="grid gap-1.5">
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-2">
+          {member.moveTypes.map((move, index) => {
+            const effectiveness = getMoveEffectivenessAgainstTypes(move.type, selectedTargetTypes);
+
+            return (
+              <MovePill
+                key={`${move.move.name || "move"}-${index}`}
+                move={move.move}
+                type={move.type}
+                effectiveness={effectiveness}
+                isExpanded={expandedMoveIndex === index}
+                isDimmed={selectedTargetTypes.length > 0 && effectiveness <= 1}
+                onClick={() =>
+                  setExpandedMoveIndex((current) => (current === index ? undefined : index))
+                }
+              />
+            );
+          })}
+        </div>
+        {expandedMove ? (
+          <MoveDetails
+            move={expandedMove.move}
+            type={expandedMove.type}
+            effectiveness={expandedEffectiveness}
+            hasTarget={selectedTargetTypes.length > 0}
           />
-        ))}
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-1.5">
@@ -895,6 +920,70 @@ function CombatRosterRow({
         Editar
       </button>
     </article>
+  );
+}
+
+function CombatStatsStrip({ stats }: { stats?: Pokemon["stats"] }) {
+  if (!stats) {
+    return (
+      <div className="rounded-sm border border-stone-800 bg-stone-900 px-2 py-1.5 text-xs font-semibold text-stone-600">
+        Sin stats
+      </div>
+    );
+  }
+
+  const attackMode = stats.attack >= stats.specialAttack ? "Fisico" : "Especial";
+  const defenseMode = stats.defense >= stats.specialDefense ? "Def fis." : "Def esp.";
+  const topAttack = Math.max(stats.attack, stats.specialAttack);
+  const topDefense = Math.max(stats.defense, stats.specialDefense);
+
+  return (
+    <div className="grid gap-1">
+      <div className="grid grid-cols-3 gap-1">
+        <StatChip label="PS" value={stats.hp} />
+        <StatChip label="Atk" value={stats.attack} active={stats.attack === topAttack} tone="attack" />
+        <StatChip label="AtE" value={stats.specialAttack} active={stats.specialAttack === topAttack} tone="special" />
+        <StatChip label="Def" value={stats.defense} active={stats.defense === topDefense} tone="defense" />
+        <StatChip label="DfE" value={stats.specialDefense} active={stats.specialDefense === topDefense} tone="specialDefense" />
+        <StatChip label="Vel" value={stats.speed} />
+      </div>
+      <p className="truncate text-[0.62rem] font-bold uppercase text-stone-500">
+        {attackMode} / {defenseMode}
+      </p>
+    </div>
+  );
+}
+
+function StatChip({
+  label,
+  value,
+  active = false,
+  tone = "neutral",
+}: {
+  label: string;
+  value: number;
+  active?: boolean;
+  tone?: "neutral" | "attack" | "special" | "defense" | "specialDefense";
+}) {
+  const activeClass = {
+    neutral: "border-stone-600 bg-stone-800 text-stone-100",
+    attack: "border-orange-300/60 bg-orange-500/15 text-orange-100",
+    special: "border-cyan-300/60 bg-cyan-500/15 text-cyan-100",
+    defense: "border-emerald-300/60 bg-emerald-500/15 text-emerald-100",
+    specialDefense: "border-indigo-300/60 bg-indigo-500/15 text-indigo-100",
+  }[tone];
+
+  return (
+    <span
+      className={cn(
+        "inline-flex min-w-0 items-center justify-between gap-1 rounded-sm border px-1 py-0.5 font-mono text-[0.58rem] tabular-nums",
+        active ? activeClass : "border-stone-800 bg-stone-900 text-stone-500",
+      )}
+      title={`${label}: ${value}`}
+    >
+      <span className="font-black">{label}</span>
+      <span className="font-bold">{value}</span>
+    </span>
   );
 }
 
@@ -945,26 +1034,35 @@ function MovePill({
   type,
   effectiveness = 1,
   isDimmed = false,
+  isExpanded = false,
+  onClick,
 }: {
   move: Pokemon["moves"][number];
   type?: PokemonType;
   effectiveness?: number;
   isDimmed?: boolean;
+  isExpanded?: boolean;
+  onClick: () => void;
 }) {
   const isCounter = effectiveness > 1;
   const isMajorCounter = effectiveness >= 4;
 
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={isExpanded}
       className={cn(
-        "flex h-7 min-w-0 items-center justify-between gap-1.5 rounded-sm border px-1.5 transition",
+        "flex h-7 min-w-0 items-center justify-between gap-1.5 rounded-sm border px-1.5 text-left outline-none ring-offset-2 ring-offset-stone-950 transition focus-visible:ring-2 focus-visible:ring-amber-200",
         isMajorCounter
           ? "border-yellow-200 bg-yellow-300/30 shadow-[0_0_0_1px_rgba(253,224,71,0.65),0_0_16px_rgba(253,224,71,0.2)]"
           : isCounter
             ? "border-amber-200 bg-amber-300/20 shadow-[0_0_0_1px_rgba(253,230,138,0.35)]"
             : "border-stone-800 bg-stone-900",
+        isExpanded ? "ring-1 ring-amber-200" : "",
         isDimmed ? "opacity-45" : "",
       )}
+      title={`Ver detalles de ${move.name}`}
     >
       <span className={cn("min-w-0 truncate text-[0.68rem] font-bold", isCounter ? "text-amber-50" : "text-stone-200")}>
         {move.name}
@@ -987,18 +1085,66 @@ function MovePill({
         ) : null}
         {type ? <TypeBadge type={type} compact /> : <span className="text-xs text-stone-600">?</span>}
       </span>
+    </button>
+  );
+}
+
+function MoveDetails({
+  move,
+  type,
+  effectiveness,
+  hasTarget,
+}: {
+  move: Pokemon["moves"][number];
+  type?: PokemonType;
+  effectiveness: number;
+  hasTarget: boolean;
+}) {
+  return (
+    <div className="rounded-sm border border-stone-800 bg-stone-900/80 p-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="min-w-0 truncate text-xs font-black text-stone-100">{move.name}</span>
+        {type ? <TypeBadge type={type} compact /> : null}
+        <MoveCategoryBadge category={move.category} verbose />
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-1.5">
+        <MoveMetric label="Pot." value={move.power ?? "-"} />
+        <MoveMetric label="Prec." value={move.accuracy === null ? "-" : `${move.accuracy}%`} />
+        <MoveMetric label="Dano" value={hasTarget ? `x${effectiveness}` : "-"} />
+      </div>
     </div>
   );
 }
 
-function MoveCategoryBadge({ category }: { category: Pokemon["moves"][number]["category"] }) {
+function MoveMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <span className="rounded-sm border border-stone-800 bg-stone-950 px-1.5 py-1">
+      <span className="block text-[0.58rem] font-black uppercase text-stone-600">{label}</span>
+      <span className="font-mono text-[0.7rem] font-black tabular-nums text-stone-200">{value}</span>
+    </span>
+  );
+}
+
+function MoveCategoryBadge({
+  category,
+  verbose = false,
+}: {
+  category: Pokemon["moves"][number]["category"];
+  verbose?: boolean;
+}) {
   if (category === "unknown") return null;
 
-  const label = {
-    physical: "F",
-    special: "E",
-    status: "St",
-  }[category];
+  const label = verbose
+    ? {
+        physical: "Fisico",
+        special: "Especial",
+        status: "Estado",
+      }[category]
+    : {
+        physical: "Fis",
+        special: "Esp",
+        status: "Est",
+      }[category];
   const className = {
     physical: "border-orange-400/40 bg-orange-500/10 text-orange-100",
     special: "border-cyan-300/40 bg-cyan-500/10 text-cyan-100",
