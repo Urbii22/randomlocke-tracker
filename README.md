@@ -184,11 +184,11 @@ Despues de fusionar, la app recalcula equipo/caja y muestra en Ajustes:
 
 - `PKHeX.Core` puede cambiar nombres de APIs entre versiones; si falla la compilacion, el ajuste deberia concentrarse en `tools/save-reader/Program.cs`.
 - Los tipos de Pokemon salen de la tabla normal de especie, no del randomizer. Esto encaja con la regla actual de la run.
-- Los movimientos randomizados se leen por nombre. Tipo/potencia/precision quedan preparados en el JSON, pero el lector actual deja esos campos como desconocidos cuando la API estable de datos de movimiento no este disponible.
+- Los movimientos se leen desde el save y sus datos estandar de Gen 1-6 se completan desde `tools/save-reader/MoveMetadata.cs`. Si una ROM randomiza tipo/potencia/categoria de movimientos, hara falta importar overrides del randomizer o leer la tabla modificada de la ROM.
 
 ## Pendiente para v2
 
 - Anadir fixtures reales de saves anonimizados.
-- Resolver tipo/potencia/precision de movimientos desde la tabla interna exacta de `PKHeX.Core`.
+- Importar overrides de randomizer para tipo/potencia/precision/categoria si se juega con movimientos randomizados.
 - Mejorar matching de Pokemon duplicados con PID/EC si se decide guardar esos identificadores.
 - Crear una pantalla dedicada de historial de sincronizaciones.

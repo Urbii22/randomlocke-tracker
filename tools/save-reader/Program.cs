@@ -189,6 +189,17 @@ internal static class SaveSnapshotReader
             : $"Move {moveId}";
         var typeId = MoveInfo.GetType(moveId, context);
 
+        if (MoveMetadataTable.TryGet(moveId, out var metadata))
+        {
+            return new SaveMove(
+                moveName,
+                TranslateType(metadata.TypeId, GameInfo.Strings.Types),
+                metadata.Category,
+                metadata.Power,
+                metadata.Accuracy
+            );
+        }
+
         return new SaveMove(moveName, TranslateType(typeId, GameInfo.Strings.Types), "unknown", null, null);
     }
 
