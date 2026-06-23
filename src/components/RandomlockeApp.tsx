@@ -807,7 +807,7 @@ function CombatRosterTable({
 }) {
   return (
     <div className="mt-3 overflow-hidden rounded-md border border-stone-800 bg-stone-950">
-      <div className="hidden grid-cols-[1.05fr_1.1fr_0.75fr_1.55fr_1.35fr_1.05fr_auto] gap-2 border-b border-stone-800 px-2.5 py-2 text-[0.65rem] font-black uppercase text-stone-600 xl:grid">
+      <div className="hidden grid-cols-[1.05fr_0.68fr_0.55fr_1.9fr_1.35fr_1.05fr_auto] gap-2 border-b border-stone-800 px-2.5 py-2 text-[0.65rem] font-black uppercase text-stone-600 xl:grid">
         <span>Pokémon</span>
         <span>Stats</span>
         <span>Tipos</span>
@@ -847,7 +847,7 @@ function CombatRosterRow({
     : 1;
 
   return (
-    <article className="grid gap-2 px-2.5 py-2.5 xl:grid-cols-[1.05fr_1.1fr_0.75fr_1.55fr_1.35fr_1.05fr_auto] xl:items-center">
+    <article className="grid gap-2 px-2.5 py-2.5 xl:grid-cols-[1.05fr_0.68fr_0.55fr_1.9fr_1.35fr_1.05fr_auto] xl:items-center">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 xl:block">
         <div className="min-w-0">
           <h3 className="truncate text-base font-black leading-5 text-stone-50">{member.pokemon.nickname}</h3>
@@ -938,7 +938,7 @@ function CombatStatsStrip({ stats }: { stats?: Pokemon["stats"] }) {
   const topDefense = Math.max(stats.defense, stats.specialDefense);
 
   return (
-    <div className="grid gap-1">
+    <div className="grid w-[7.75rem] gap-1">
       <div className="grid grid-cols-2 gap-1">
         <StatChip label="PS" value={stats.hp} />
         <StatChip label="Atk" value={stats.attack} active={stats.attack === topAttack} tone="attack" />
@@ -976,7 +976,7 @@ function StatChip({
   return (
     <span
       className={cn(
-        "inline-flex min-w-0 items-center justify-between gap-1 rounded-sm border px-1 py-0.5 font-mono text-[0.58rem] tabular-nums",
+        "inline-flex min-w-0 items-center justify-between gap-0.5 rounded-sm border px-1 py-0.5 font-mono text-[0.54rem] tabular-nums",
         active ? activeClass : "border-stone-800 bg-stone-900 text-stone-500",
       )}
       title={`${label}: ${value}`}
@@ -1069,8 +1069,6 @@ function MovePill({
       </span>
       <span className="flex shrink-0 items-center gap-1">
         <MoveCategoryBadge category={move.category} />
-        {move.power ? <span className="font-mono text-[0.62rem] font-black text-amber-100">{move.power}</span> : null}
-        {move.accuracy ? <span className="font-mono text-[0.62rem] font-black text-stone-400">{move.accuracy}%</span> : null}
         {isCounter ? (
           <span
             className={cn(
