@@ -864,7 +864,7 @@ function CombatRosterRow({
 
       <CombatStatsStrip stats={member.pokemon.stats} />
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="grid w-fit grid-cols-1 gap-1.5">
         {member.pokemon.types.map((type, index) => (
           <TypeBadge key={`${type}-${index}`} type={type} compact />
         ))}
@@ -939,7 +939,7 @@ function CombatStatsStrip({ stats }: { stats?: Pokemon["stats"] }) {
 
   return (
     <div className="grid gap-1">
-      <div className="grid grid-cols-3 gap-1">
+      <div className="grid grid-cols-2 gap-1">
         <StatChip label="PS" value={stats.hp} />
         <StatChip label="Atk" value={stats.attack} active={stats.attack === topAttack} tone="attack" />
         <StatChip label="AtE" value={stats.specialAttack} active={stats.specialAttack === topAttack} tone="special" />
