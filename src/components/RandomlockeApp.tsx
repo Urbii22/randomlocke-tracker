@@ -679,12 +679,6 @@ function CombatHub({
               selectedOpponent={selectedOpponent}
               onQueryChange={(query) => {
                 setPokedexQuery(query);
-                if (query.trim()) {
-                  setSelectedOpponent(undefined);
-                  setSelectedTargetTypes([]);
-                } else {
-                  setSelectedOpponent(undefined);
-                }
               }}
               onSelect={(entry) => {
                 setSelectedOpponent(entry);
@@ -803,7 +797,7 @@ function OpponentSearchPanel({
 
       {selectedOpponent ? <OpponentSummary entry={selectedOpponent} /> : null}
 
-      {!selectedOpponent && query.trim() ? (
+      {query.trim() ? (
         <div className="grid max-h-32 gap-1 overflow-auto">
           {matches.length > 0 ? (
             matches.map((entry) => (
