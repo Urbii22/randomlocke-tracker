@@ -825,6 +825,9 @@ function OpponentSearchPanel({
 }
 
 function OpponentSummary({ entry }: { entry: PokedexEntry }) {
+  const topAttack = Math.max(entry.stats.attack, entry.stats.specialAttack);
+  const topDefense = Math.max(entry.stats.defense, entry.stats.specialDefense);
+
   return (
     <div className="grid gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -838,12 +841,20 @@ function OpponentSummary({ entry }: { entry: PokedexEntry }) {
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-1">
+      <div className="grid grid-cols-2 gap-1">
+        <StatPairColumn
+          label="Ataque"
+          first={<StatChip label="Atk" value={entry.stats.attack} active={entry.stats.attack === topAttack} tone="attack" />}
+          second={<StatChip label="AtE" value={entry.stats.specialAttack} active={entry.stats.specialAttack === topAttack} tone="special" />}
+        />
+        <StatPairColumn
+          label="Defensa"
+          first={<StatChip label="Def" value={entry.stats.defense} active={entry.stats.defense === topDefense} tone="defense" />}
+          second={<StatChip label="DfE" value={entry.stats.specialDefense} active={entry.stats.specialDefense === topDefense} tone="specialDefense" />}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-1">
         <StatChip label="PS" value={entry.stats.hp} />
-        <StatChip label="Atk" value={entry.stats.attack} />
-        <StatChip label="Def" value={entry.stats.defense} />
-        <StatChip label="AtE" value={entry.stats.specialAttack} />
-        <StatChip label="DfE" value={entry.stats.specialDefense} />
         <StatChip label="Vel" value={entry.stats.speed} />
       </div>
     </div>
