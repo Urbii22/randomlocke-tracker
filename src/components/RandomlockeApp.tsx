@@ -50,11 +50,11 @@ import { cn } from "@/lib/cn";
 import {
   calculateDashboardSummary,
   formatPokemonStatTotal,
+  getPokemonStatTotal,
   type InventorySortPreset,
   isNormalCaptureLimitReached,
   pokemonStatusLabels,
   sortInventoryItems,
-  updatePokemonStatus,
   upsertInventoryItem,
   upsertRoute,
   upsertPokemon,
@@ -261,10 +261,6 @@ export function RandomlockeApp() {
     [game.state.inventory, inventorySort],
   );
 
-  function setPokemonStatus(pokemonId: string, status: PokemonStatus) {
-    game.setState((state) => updatePokemonStatus(state, pokemonId, status));
-  }
-
   function savePokemon(pokemon: Pokemon) {
     game.setState((state) => upsertPokemon(state, pokemon));
     setEditing(undefined);
@@ -463,7 +459,6 @@ export function RandomlockeApp() {
                   setEditing(pokemon);
                   setIsPokemonPanelOpen(true);
                 }}
-                onStatusChange={setPokemonStatus}
               />
               <PokemonEditorPanel
                 open={isPokemonPanelOpen}
@@ -1564,16 +1559,40 @@ function BattleCard({ title, battle, icon: Icon }: { title: string; battle?: Bat
   );
 }
 
-function PokemonTable({ pokemon, filter, onFilterChange, onExport, onAdd, onEdit, onStatusChange }: {
+type PokemonSortDirection = "asc" | "desc";
+
+function PokemonTable({ pokemon, filter, onFilterChange, onExport, onAdd, onEdit }: {
   pokemon: Pokemon[];
   filter: PokemonStatus | "all";
   onFilterChange: (status: PokemonStatus | "all") => void;
   onExport: () => void;
   onAdd: () => void;
   onEdit: (pokemon: Pokemon) => void;
-  onStatusChange: (pokemonId: string, status: PokemonStatus) => void;
 }) {
+  const [statsSort, setStatsSort] = useState<PokemonSortDirection | undefined>();
   const statuses = Object.keys(pokemonStatusLabels) as PokemonStatus[];
+  const sortedPokemon = useMemo(() => {
+    if (!statsSort) {
+      return pokemon;
+    }
+
+    return [...pokemon].sort((left, right) => {
+      const leftTotal = getPokemonStatTotal(left.stats);
+      const rightTotal = getPokemonStatTotal(right.stats);
+
+      if (leftTotal === undefined && rightTotal === undefined) {
+        return left.nickname.localeCompare(right.nickname, "es", { sensitivity: "base" });
+      }
+
+      if (leftTotal === undefined) return 1;
+      if (rightTotal === undefined) return -1;
+
+      const delta = statsSort === "asc" ? leftTotal - rightTotal : rightTotal - leftTotal;
+      return delta || left.nickname.localeCompare(right.nickname, "es", { sensitivity: "base" });
+    });
+  }, [pokemon, statsSort]);
+  const statsSortLabel = statsSort === "asc" ? "Stats ↑" : statsSort === "desc" ? "Stats ↓" : "Stats";
+
   return (
     <section className="rounded-md border border-stone-800 bg-stone-900 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1595,9 +1614,27 @@ function PokemonTable({ pokemon, filter, onFilterChange, onExport, onAdd, onEdit
       </div>
       <div className="mt-4 overflow-x-auto">
         <table className="data-table">
-          <thead><tr><th>Pokémon</th><th>Estado</th><th>Tipos</th><th>Rol</th><th>Ruta</th><th>Stats</th><th>Acciones</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Pokémon</th>
+              <th>Estado</th>
+              <th>Tipos</th>
+              <th>Rol</th>
+              <th>Ruta</th>
+              <th aria-sort={statsSort === "asc" ? "ascending" : statsSort === "desc" ? "descending" : "none"}>
+                <button
+                  type="button"
+                  onClick={() => setStatsSort((current) => (current === "desc" ? "asc" : "desc"))}
+                  className="inline-flex items-center gap-1 font-black uppercase text-stone-400 hover:text-amber-200"
+                  title="Ordenar por total de stats"
+                >
+                  {statsSortLabel}
+                </button>
+              </th>
+            </tr>
+          </thead>
           <tbody>
-            {pokemon.map((entry) => (
+            {sortedPokemon.map((entry) => (
               <tr key={entry.id}>
                 <td><button className="text-left" onClick={() => onEdit(entry)} type="button"><span className="block font-black text-stone-50">{entry.nickname}</span><span className="text-sm text-stone-400">{entry.species} · Nv. {entry.level}</span></button></td>
                 <td><StatusBadge kind="pokemon" status={entry.status} /></td>
@@ -1605,7 +1642,6 @@ function PokemonTable({ pokemon, filter, onFilterChange, onExport, onAdd, onEdit
                 <td>{entry.role || "-"}</td>
                 <td>{entry.routeCaught || "-"}</td>
                 <td className="font-mono tabular-nums text-amber-200">{formatPokemonStatTotal(entry)}</td>
-                <td><div className="flex min-w-64 flex-wrap gap-2"><button className="mini-button" onClick={() => onStatusChange(entry.id, "alive")} type="button">Equipo</button><button className="mini-button" onClick={() => onStatusChange(entry.id, "box")} type="button">Caja</button><button className="mini-button danger" onClick={() => onStatusChange(entry.id, "dead")} type="button">Muerto</button></div></td>
               </tr>
             ))}
           </tbody>
