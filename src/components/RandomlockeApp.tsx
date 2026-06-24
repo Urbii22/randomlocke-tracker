@@ -595,6 +595,7 @@ function CombatHub({
   const counterMoves = selectedTargetTypes.length > 0
     ? profile.members.flatMap((member) =>
         member.moveTypes
+          .filter(({ move }) => isDamagingMove(move))
           .map((move) => ({
             pokemon: member.pokemon.nickname,
             move: move.move.name,
@@ -705,7 +706,7 @@ function CombatHub({
             </div>
             <p className="mt-2 text-xs font-semibold text-stone-500">
               {selectedTargetTypes.length > 0
-                ? `Rival: ${selectedTargetTypes.join(" + ")}. Amarillo fuerte marca x4.`
+                ? `Rival: ${selectedTargetTypes.join(" + ")}. Amarillo pega bien, rojo pega mal y azul no afecta.`
                 : "Pulsa uno o dos tipos del rival para ver qué ataques le pegan eficazmente."}
             </p>
           </div>
@@ -917,9 +918,15 @@ function getCounterCount(
 ): number {
   return members.reduce(
     (count, member) =>
-      count + member.moveTypes.filter((move) => getMoveEffectivenessAgainstTypes(move.type, targetTypes) > 1).length,
+      count + member.moveTypes.filter(
+        (move) => isDamagingMove(move.move) && getMoveEffectivenessAgainstTypes(move.type, targetTypes) > 1,
+      ).length,
     0,
   );
+}
+
+function isDamagingMove(move: Pokemon["moves"][number]): boolean {
+  return move.category !== "status" && move.power !== null && move.power > 0;
 }
 
 function toggleTargetType(current: PokemonType[], type: PokemonType): PokemonType[] {
@@ -1008,6 +1015,7 @@ function CombatRosterRow({
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-2">
           {member.moveTypes.map((move, index) => {
             const effectiveness = getMoveEffectivenessAgainstTypes(move.type, selectedTargetTypes);
+            const isDamaging = isDamagingMove(move.move);
 
             return (
               <MovePill
@@ -1015,8 +1023,9 @@ function CombatRosterRow({
                 move={move.move}
                 type={move.type}
                 effectiveness={effectiveness}
+                isDamaging={isDamaging}
                 isExpanded={expandedMoveIndex === index}
-                isDimmed={selectedTargetTypes.length > 0 && effectiveness <= 1}
+                isDimmed={selectedTargetTypes.length > 0 && (!isDamaging || effectiveness === 1)}
                 onClick={() =>
                   setExpandedMoveIndex((current) => (current === index ? undefined : index))
                 }
@@ -1029,6 +1038,7 @@ function CombatRosterRow({
             move={expandedMove.move}
             type={expandedMove.type}
             effectiveness={expandedEffectiveness}
+            isDamaging={isDamagingMove(expandedMove.move)}
             hasTarget={selectedTargetTypes.length > 0}
           />
         ) : null}
@@ -1185,6 +1195,7 @@ function MovePill({
   move,
   type,
   effectiveness = 1,
+  isDamaging = true,
   isDimmed = false,
   isExpanded = false,
   onClick,
@@ -1192,12 +1203,32 @@ function MovePill({
   move: Pokemon["moves"][number];
   type?: PokemonType;
   effectiveness?: number;
+  isDamaging?: boolean;
   isDimmed?: boolean;
   isExpanded?: boolean;
   onClick: () => void;
 }) {
-  const isCounter = effectiveness > 1;
-  const isMajorCounter = effectiveness >= 4;
+  const hasEffectiveness = isDamaging;
+  const isCounter = hasEffectiveness && effectiveness > 1;
+  const isMajorCounter = hasEffectiveness && effectiveness >= 4;
+  const isResisted = hasEffectiveness && effectiveness > 0 && effectiveness < 1;
+  const isImmune = hasEffectiveness && effectiveness === 0;
+  const effectivenessClass = isMajorCounter
+    ? "border-yellow-200 bg-yellow-300/30 shadow-[0_0_0_1px_rgba(253,224,71,0.65),0_0_16px_rgba(253,224,71,0.2)]"
+    : isCounter
+      ? "border-amber-200 bg-amber-300/20 shadow-[0_0_0_1px_rgba(253,230,138,0.35)]"
+      : isResisted
+        ? "border-red-300/70 bg-red-500/15"
+        : isImmune
+          ? "border-sky-300/70 bg-sky-500/15"
+          : "border-stone-800 bg-stone-900";
+  const nameClass = isCounter
+    ? "text-amber-50"
+    : isResisted
+      ? "text-red-100"
+      : isImmune
+        ? "text-sky-100"
+        : "text-stone-200";
 
   return (
     <button
@@ -1206,28 +1237,28 @@ function MovePill({
       aria-expanded={isExpanded}
       className={cn(
         "flex h-7 min-w-0 items-center justify-between gap-1.5 rounded-sm border px-1.5 text-left outline-none ring-offset-2 ring-offset-stone-950 transition focus-visible:ring-2 focus-visible:ring-amber-200",
-        isMajorCounter
-          ? "border-yellow-200 bg-yellow-300/30 shadow-[0_0_0_1px_rgba(253,224,71,0.65),0_0_16px_rgba(253,224,71,0.2)]"
-          : isCounter
-            ? "border-amber-200 bg-amber-300/20 shadow-[0_0_0_1px_rgba(253,230,138,0.35)]"
-            : "border-stone-800 bg-stone-900",
+        effectivenessClass,
         isExpanded ? "ring-1 ring-amber-200" : "",
         isDimmed ? "opacity-45" : "",
       )}
       title={`Ver detalles de ${move.name}`}
     >
-      <span className={cn("min-w-0 truncate text-[0.68rem] font-bold", isCounter ? "text-amber-50" : "text-stone-200")}>
+      <span className={cn("min-w-0 truncate text-[0.68rem] font-bold", nameClass)}>
         {move.name}
       </span>
       <span className="flex shrink-0 items-center gap-1">
         <MoveCategoryBadge category={move.category} />
-        {isCounter ? (
+        {hasEffectiveness && effectiveness !== 1 ? (
           <span
             className={cn(
               "rounded-sm border px-1 font-mono text-[0.58rem] font-black",
               isMajorCounter
                 ? "border-yellow-100 bg-yellow-200 text-stone-950"
-                : "border-amber-200/60 bg-amber-300/20 text-amber-50",
+                : isCounter
+                  ? "border-amber-200/60 bg-amber-300/20 text-amber-50"
+                  : isResisted
+                    ? "border-red-200/70 bg-red-500/20 text-red-100"
+                    : "border-sky-200/70 bg-sky-500/20 text-sky-100",
             )}
           >
             x{effectiveness}
@@ -1243,11 +1274,13 @@ function MoveDetails({
   move,
   type,
   effectiveness,
+  isDamaging,
   hasTarget,
 }: {
   move: Pokemon["moves"][number];
   type?: PokemonType;
   effectiveness: number;
+  isDamaging: boolean;
   hasTarget: boolean;
 }) {
   return (
@@ -1260,7 +1293,7 @@ function MoveDetails({
       <div className="mt-2 grid grid-cols-3 gap-1.5">
         <MoveMetric label="Pot." value={move.power ?? "-"} />
         <MoveMetric label="Prec." value={move.accuracy === null ? "-" : `${move.accuracy}%`} />
-        <MoveMetric label="Dano" value={hasTarget ? `x${effectiveness}` : "-"} />
+        <MoveMetric label="Dano" value={hasTarget && isDamaging ? `x${effectiveness}` : "-"} />
       </div>
     </div>
   );
