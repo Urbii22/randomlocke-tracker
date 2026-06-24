@@ -792,8 +792,6 @@ function OpponentSearchPanel({
         />
       </label>
 
-      {selectedOpponent ? <OpponentSummary entry={selectedOpponent} /> : null}
-
       {query.trim() ? (
         <div className="grid max-h-32 gap-1 overflow-auto">
           {matches.length > 0 ? (
@@ -820,6 +818,8 @@ function OpponentSearchPanel({
           )}
         </div>
       ) : null}
+
+      {selectedOpponent ? <OpponentSummary entry={selectedOpponent} /> : null}
     </div>
   );
 }
