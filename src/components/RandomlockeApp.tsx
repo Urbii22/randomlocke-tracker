@@ -1073,21 +1073,13 @@ function CombatStatsStrip({ stats }: { stats?: Pokemon["stats"] }) {
   const topDefense = Math.max(stats.defense, stats.specialDefense);
 
   return (
-    <div className="grid w-[9rem] gap-1">
-      <div className="grid grid-cols-2 gap-1">
-        <StatPairColumn
-          label="Ataque"
-          first={<StatChip label="Atk" value={stats.attack} active={stats.attack === topAttack} tone="attack" />}
-          second={<StatChip label="AtE" value={stats.specialAttack} active={stats.specialAttack === topAttack} tone="special" />}
-        />
-        <StatPairColumn
-          label="Defensa"
-          first={<StatChip label="Def" value={stats.defense} active={stats.defense === topDefense} tone="defense" />}
-          second={<StatChip label="DfE" value={stats.specialDefense} active={stats.specialDefense === topDefense} tone="specialDefense" />}
-        />
-      </div>
+    <div className="grid w-[7.75rem] gap-1">
       <div className="grid grid-cols-2 gap-1">
         <StatChip label="PS" value={stats.hp} />
+        <StatChip label="Atk" value={stats.attack} active={stats.attack === topAttack} tone="attack" />
+        <StatChip label="AtE" value={stats.specialAttack} active={stats.specialAttack === topAttack} tone="special" />
+        <StatChip label="Def" value={stats.defense} active={stats.defense === topDefense} tone="defense" />
+        <StatChip label="DfE" value={stats.specialDefense} active={stats.specialDefense === topDefense} tone="specialDefense" />
         <StatChip label="Vel" value={stats.speed} />
       </div>
       <p className="truncate text-[0.62rem] font-bold uppercase text-stone-500">
