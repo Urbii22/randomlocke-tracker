@@ -931,7 +931,7 @@ function CombatRosterTable({
 }) {
   return (
     <div className="mt-3 overflow-hidden rounded-md border border-stone-800 bg-stone-950">
-      <div className="hidden grid-cols-[1.05fr_0.68fr_0.55fr_1.9fr_1.35fr_1.05fr_auto] gap-2 border-b border-stone-800 px-2.5 py-2 text-[0.65rem] font-black uppercase text-stone-600 xl:grid">
+      <div className="hidden grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto] gap-2 border-b border-stone-800 px-2.5 py-2 text-[0.65rem] font-black uppercase text-stone-600 xl:grid">
         <span>Pokémon</span>
         <span>Stats</span>
         <span>Tipos</span>
@@ -971,7 +971,7 @@ function CombatRosterRow({
     : 1;
 
   return (
-    <article className="grid gap-2 px-2.5 py-2.5 xl:grid-cols-[1.05fr_0.68fr_0.55fr_1.9fr_1.35fr_1.05fr_auto] xl:items-center">
+    <article className="grid gap-2 px-2.5 py-2.5 xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto] xl:items-center">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 xl:block">
         <div className="min-w-0">
           <h3 className="truncate text-base font-black leading-5 text-stone-50">{member.pokemon.nickname}</h3>
@@ -1062,18 +1062,44 @@ function CombatStatsStrip({ stats }: { stats?: Pokemon["stats"] }) {
   const topDefense = Math.max(stats.defense, stats.specialDefense);
 
   return (
-    <div className="grid w-[7.75rem] gap-1">
+    <div className="grid w-[9rem] gap-1">
+      <div className="grid grid-cols-2 gap-1">
+        <StatPairColumn
+          label="Ataque"
+          first={<StatChip label="Atk" value={stats.attack} active={stats.attack === topAttack} tone="attack" />}
+          second={<StatChip label="AtE" value={stats.specialAttack} active={stats.specialAttack === topAttack} tone="special" />}
+        />
+        <StatPairColumn
+          label="Defensa"
+          first={<StatChip label="Def" value={stats.defense} active={stats.defense === topDefense} tone="defense" />}
+          second={<StatChip label="DfE" value={stats.specialDefense} active={stats.specialDefense === topDefense} tone="specialDefense" />}
+        />
+      </div>
       <div className="grid grid-cols-2 gap-1">
         <StatChip label="PS" value={stats.hp} />
-        <StatChip label="Atk" value={stats.attack} active={stats.attack === topAttack} tone="attack" />
-        <StatChip label="AtE" value={stats.specialAttack} active={stats.specialAttack === topAttack} tone="special" />
-        <StatChip label="Def" value={stats.defense} active={stats.defense === topDefense} tone="defense" />
-        <StatChip label="DfE" value={stats.specialDefense} active={stats.specialDefense === topDefense} tone="specialDefense" />
         <StatChip label="Vel" value={stats.speed} />
       </div>
       <p className="truncate text-[0.62rem] font-bold uppercase text-stone-500">
         {attackMode} / {defenseMode}
       </p>
+    </div>
+  );
+}
+
+function StatPairColumn({
+  label,
+  first,
+  second,
+}: {
+  label: string;
+  first: React.ReactNode;
+  second: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-1 rounded-sm border border-stone-800 bg-stone-950/40 p-1">
+      <span className="text-[0.52rem] font-black uppercase leading-none text-stone-600">{label}</span>
+      {first}
+      {second}
     </div>
   );
 }
