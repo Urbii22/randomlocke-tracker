@@ -5,6 +5,7 @@ import {
   createInventoryItemDraft,
   createInitialGameState,
   createRouteDraft,
+  getPokemonStatTotal,
   getNextBattle,
   isNormalCaptureLimitReached,
   sortInventoryItems,
@@ -16,6 +17,18 @@ import {
 } from "./game";
 
 describe("Randomlocke game state", () => {
+  it("calculates a real stat total from save stats", () => {
+    expect(getPokemonStatTotal({
+      hp: 91,
+      attack: 134,
+      defense: 95,
+      specialAttack: 100,
+      specialDefense: 100,
+      speed: 80,
+    })).toBe(600);
+    expect(getPokemonStatTotal()).toBeUndefined();
+  });
+
   it("creates an initial game state without personal run data", () => {
     const state = createInitialGameState();
 

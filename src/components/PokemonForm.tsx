@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import {
   createMoveDraft,
   createPokemonDraft,
+  formatPokemonStatTotal,
   parseListInput,
   pokemonStatusLabels,
   validatePokemonDraft,
@@ -136,7 +137,7 @@ function PokemonDetail({ pokemon }: { pokemon: Pokemon }) {
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:min-w-64">
-          <DetailMetric label="Valor" value={`${pokemon.value}/10`} />
+          <DetailMetric label="Stats" value={formatPokemonStatTotal(pokemon)} />
           <DetailMetric label="Origen" value={location} />
         </div>
       </div>
@@ -383,7 +384,7 @@ export function PokemonForm({ editing, onSubmit, onCancel }: PokemonFormProps) {
         <Field label="Rol">
           <input value={draft.role} onChange={(event) => updateField("role", event.target.value)} />
         </Field>
-        <Field label="Valor">
+        <Field label="Valor manual">
           <input
             type="number"
             min={0}

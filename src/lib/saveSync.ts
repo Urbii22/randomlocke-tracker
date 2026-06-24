@@ -1,4 +1,5 @@
 import { getPokemonDefensiveProfile, getTeamCombatProfile } from "@/lib/combat";
+import { getPokemonStatTotal } from "@/lib/game";
 import type {
   GameState,
   InventoryCategory,
@@ -410,15 +411,19 @@ function getCandidatesBetterThanSixth(pokemon: Pokemon[]): Pokemon[] {
     .filter((entry) => entry.status === "alive")
     .toSorted((a, b) => (a.partySlot ?? 99) - (b.partySlot ?? 99));
   const sixth = team[5];
+  const sixthTotal = getPokemonStatTotal(sixth?.stats);
 
-  if (!sixth) {
+  if (sixthTotal === undefined) {
     return [];
   }
 
   return pokemon
     .filter((entry) => entry.status === "box" || entry.status === "candidate")
-    .filter((entry) => entry.value > sixth.value)
-    .toSorted((a, b) => b.value - a.value);
+    .filter((entry) => {
+      const total = getPokemonStatTotal(entry.stats);
+      return total !== undefined && total > sixthTotal;
+    })
+    .toSorted((a, b) => (getPokemonStatTotal(b.stats) ?? 0) - (getPokemonStatTotal(a.stats) ?? 0));
 }
 
 function createStablePokemonId(pokemon: SavePokemon, usedIds: Set<string>): string {

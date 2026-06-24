@@ -11,12 +11,25 @@ import type {
   Pokemon,
   PokemonDraft,
   PokemonMove,
+  PokemonStats,
   PokemonStatus,
   Route,
   RouteDraft,
 } from "@/types/randomlocke";
 
 export const TEAM_SIZE = 6;
+
+export function getPokemonStatTotal(stats?: PokemonStats): number | undefined {
+  if (!stats) {
+    return undefined;
+  }
+
+  return stats.hp + stats.attack + stats.defense + stats.specialAttack + stats.specialDefense + stats.speed;
+}
+
+export function formatPokemonStatTotal(pokemon: Pick<Pokemon, "stats">): string {
+  return getPokemonStatTotal(pokemon.stats)?.toString() ?? "-";
+}
 
 export const pokemonStatusLabels: Record<PokemonStatus, string> = {
   alive: "Equipo",

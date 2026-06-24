@@ -49,6 +49,7 @@ import {
 import { cn } from "@/lib/cn";
 import {
   calculateDashboardSummary,
+  formatPokemonStatTotal,
   type InventorySortPreset,
   isNormalCaptureLimitReached,
   pokemonStatusLabels,
@@ -1531,8 +1532,8 @@ function RosterCard({ pokemon }: { pokemon: Pokemon }) {
           <p className="text-lg font-black text-stone-50">{pokemon.nickname}</p>
           <p className="text-sm text-stone-400">{pokemon.species} · Nv. {pokemon.level}</p>
         </div>
-        <span className="rounded-sm bg-amber-300 px-2 py-1 font-mono text-sm font-black tabular-nums text-stone-950">
-          {pokemon.value}/10
+        <span className="rounded-sm bg-amber-300 px-2 py-1 font-mono text-sm font-black tabular-nums text-stone-950" title="Total de stats del save">
+          {formatPokemonStatTotal(pokemon)}
         </span>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -1594,7 +1595,7 @@ function PokemonTable({ pokemon, filter, onFilterChange, onExport, onAdd, onEdit
       </div>
       <div className="mt-4 overflow-x-auto">
         <table className="data-table">
-          <thead><tr><th>Pokémon</th><th>Estado</th><th>Tipos</th><th>Rol</th><th>Ruta</th><th>Valor</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Pokémon</th><th>Estado</th><th>Tipos</th><th>Rol</th><th>Ruta</th><th>Stats</th><th>Acciones</th></tr></thead>
           <tbody>
             {pokemon.map((entry) => (
               <tr key={entry.id}>
@@ -1603,7 +1604,7 @@ function PokemonTable({ pokemon, filter, onFilterChange, onExport, onAdd, onEdit
                 <td>{entry.types.join(", ") || "-"}</td>
                 <td>{entry.role || "-"}</td>
                 <td>{entry.routeCaught || "-"}</td>
-                <td className="font-mono tabular-nums text-amber-200">{entry.value}/10</td>
+                <td className="font-mono tabular-nums text-amber-200">{formatPokemonStatTotal(entry)}</td>
                 <td><div className="flex min-w-64 flex-wrap gap-2"><button className="mini-button" onClick={() => onStatusChange(entry.id, "alive")} type="button">Equipo</button><button className="mini-button" onClick={() => onStatusChange(entry.id, "box")} type="button">Caja</button><button className="mini-button danger" onClick={() => onStatusChange(entry.id, "dead")} type="button">Muerto</button></div></td>
               </tr>
             ))}
@@ -1954,7 +1955,7 @@ function SaveSyncReportPanel({ report }: { report: SaveSyncReport }) {
                 key={pokemon.id}
                 className="rounded-sm border border-amber-300/40 bg-amber-300/10 px-2 py-1 text-xs font-bold text-amber-100"
               >
-                {pokemon.nickname} ({pokemon.value}/10)
+                {pokemon.nickname} ({formatPokemonStatTotal(pokemon)} stats)
               </span>
             ))}
           </div>
