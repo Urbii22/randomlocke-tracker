@@ -706,7 +706,7 @@ function CombatHub({
             </div>
             <p className="mt-2 text-xs font-semibold text-stone-500">
               {selectedTargetTypes.length > 0
-                ? `Rival: ${selectedTargetTypes.join(" + ")}. Amarillo pega bien, rojo pega mal y azul no afecta.`
+                ? `Rival: ${selectedTargetTypes.join(" + ")}. Verde pega bien, rojo pega mal y azul no afecta.`
                 : "Pulsa uno o dos tipos del rival para ver qué ataques le pegan eficazmente."}
             </p>
           </div>
@@ -1214,16 +1214,16 @@ function MovePill({
   const isResisted = hasEffectiveness && effectiveness > 0 && effectiveness < 1;
   const isImmune = hasEffectiveness && effectiveness === 0;
   const effectivenessClass = isMajorCounter
-    ? "border-yellow-200 bg-yellow-300/30 shadow-[0_0_0_1px_rgba(253,224,71,0.65),0_0_16px_rgba(253,224,71,0.2)]"
+    ? "border-lime-200 bg-lime-400/30 shadow-[0_0_0_1px_rgba(190,242,100,0.65),0_0_16px_rgba(190,242,100,0.22)]"
     : isCounter
-      ? "border-amber-200 bg-amber-300/20 shadow-[0_0_0_1px_rgba(253,230,138,0.35)]"
+      ? "border-emerald-200 bg-emerald-400/20 shadow-[0_0_0_1px_rgba(110,231,183,0.35)]"
       : isResisted
         ? "border-red-300/70 bg-red-500/15"
         : isImmune
           ? "border-sky-300/70 bg-sky-500/15"
           : "border-stone-800 bg-stone-900";
   const nameClass = isCounter
-    ? "text-amber-50"
+    ? "text-emerald-50"
     : isResisted
       ? "text-red-100"
       : isImmune
@@ -1253,9 +1253,9 @@ function MovePill({
             className={cn(
               "rounded-sm border px-1 font-mono text-[0.58rem] font-black",
               isMajorCounter
-                ? "border-yellow-100 bg-yellow-200 text-stone-950"
+                ? "border-lime-100 bg-lime-200 text-stone-950"
                 : isCounter
-                  ? "border-amber-200/60 bg-amber-300/20 text-amber-50"
+                  ? "border-emerald-200/70 bg-emerald-400/20 text-emerald-50"
                   : isResisted
                     ? "border-red-200/70 bg-red-500/20 text-red-100"
                     : "border-sky-200/70 bg-sky-500/20 text-sky-100",
