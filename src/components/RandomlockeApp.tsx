@@ -679,13 +679,16 @@ function CombatHub({
               selectedOpponent={selectedOpponent}
               onQueryChange={(query) => {
                 setPokedexQuery(query);
-                if (!query.trim()) {
+                if (query.trim()) {
+                  setSelectedOpponent(undefined);
+                  setSelectedTargetTypes([]);
+                } else {
                   setSelectedOpponent(undefined);
                 }
               }}
               onSelect={(entry) => {
                 setSelectedOpponent(entry);
-                setPokedexQuery(entry.name);
+                setPokedexQuery("");
                 setSelectedTargetTypes(
                   entry.types
                     .map(normalizeTypeForUi)
@@ -783,11 +786,14 @@ function OpponentSearchPanel({
   onQueryChange: (query: string) => void;
   onSelect: (entry: PokedexEntry) => void;
 }) {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="mt-2 grid gap-2 rounded-sm border border-stone-800 bg-stone-900 p-2">
       <label className="grid gap-1 text-[0.65rem] font-black uppercase text-stone-500">
         Buscar rival
         <input
+          ref={searchInputRef}
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Garchomp, Venusaur..."
@@ -804,7 +810,10 @@ function OpponentSearchPanel({
               <button
                 key={entry.id}
                 type="button"
-                onClick={() => onSelect(entry)}
+                onClick={() => {
+                  onSelect(entry);
+                  searchInputRef.current?.focus();
+                }}
                 className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-sm border border-stone-800 bg-stone-950 px-2 py-1 text-left hover:border-amber-200"
               >
                 <span className="truncate text-xs font-black text-stone-100">{entry.name}</span>
