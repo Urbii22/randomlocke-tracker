@@ -188,6 +188,7 @@ export function mergeSaveSnapshot(state: GameState, snapshot: SaveSnapshot): Sav
   const untouchedPokemon = state.pokemon.filter(
     (pokemon) =>
       !seenIds.has(pokemon.id) &&
+      !isStaleSavePokemon(pokemon) &&
       !isStaleSaveDuplicate(pokemon, syncedNicknames, syncedIdentities),
   );
   const pokemon = [...syncedPokemon, ...untouchedPokemon];
@@ -524,6 +525,20 @@ function isStaleSaveDuplicate(
 
   const nickname = normalizeKey(pokemon.nickname || pokemon.species);
   if (!nickname || !syncedNicknames.has(nickname) || syncedIdentities.has(identityFor(pokemon))) {
+    return false;
+  }
+
+  return Boolean(
+    pokemon.source === "party" ||
+      pokemon.source === "box" ||
+      pokemon.lastSeenInSaveAt ||
+      typeof pokemon.partySlot === "number" ||
+      typeof pokemon.box === "number",
+  );
+}
+
+function isStaleSavePokemon(pokemon: Pokemon): boolean {
+  if (pokemon.status === "dead") {
     return false;
   }
 

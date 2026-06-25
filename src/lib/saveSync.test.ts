@@ -125,6 +125,57 @@ describe("save sync", () => {
     expect(result.state.battles.find((battle) => battle.id === "friend-1")?.completed).toBe(true);
   });
 
+  it("removes stale save-derived active pokemon when syncing a different save", () => {
+    const state = createInitialGameState();
+    state.pokemon = Array.from({ length: 6 }, (_, index) => ({
+      id: `old-party-${index}`,
+      species: `Oldmon${index}`,
+      nickname: `Oldmon${index}`,
+      level: 20,
+      types: ["Normal"],
+      ability: "",
+      moves: [],
+      item: "",
+      lastSeenInSaveAt: "2026-06-22T10:00:00.000Z",
+      status: "alive",
+      role: "",
+      value: 5,
+      notes: "",
+      routeCaught: "",
+      deathCause: "",
+      deathLocation: "",
+    }));
+
+    const result = mergeSaveSnapshot(
+      state,
+      snapshot({
+        party: Array.from({ length: 6 }, (_, index) => ({
+          source: "party",
+          partySlot: index,
+          species: `Newmon${index}`,
+          nickname: `Newmon${index}`,
+          level: 30,
+          types: ["Agua"],
+          ability: "",
+          item: null,
+          moves: [],
+        })),
+        boxes: [],
+      }),
+    );
+
+    expect(result.state.pokemon.filter((pokemon) => pokemon.status === "alive")).toHaveLength(6);
+    expect(result.state.pokemon.some((pokemon) => pokemon.nickname.startsWith("Oldmon"))).toBe(false);
+    expect(result.state.pokemon.map((pokemon) => pokemon.nickname)).toEqual([
+      "Newmon0",
+      "Newmon1",
+      "Newmon2",
+      "Newmon3",
+      "Newmon4",
+      "Newmon5",
+    ]);
+  });
+
   it("preserves dead pokemon even when they appear in the party", () => {
     const state = stateWithPepe({ status: "dead" });
 
