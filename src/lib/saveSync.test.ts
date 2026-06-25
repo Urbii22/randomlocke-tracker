@@ -450,15 +450,19 @@ describe("save sync", () => {
   it("validates configured save paths before reading", () => {
     expect(validateConfiguredSavePath("", () => true)).toEqual({
       ok: false,
-      error: "Configura la ruta del archivo main antes de sincronizar.",
+      error: "Configura la ruta del archivo de save antes de sincronizar.",
     });
     expect(validateConfiguredSavePath("D:\\save\\main", () => false)).toEqual({
       ok: false,
-      error: "No se encontro el archivo main en la ruta configurada.",
+      error: "No se encontro el archivo de save en la ruta configurada.",
     });
     expect(validateConfiguredSavePath(" D:\\save\\main ", () => true)).toEqual({
       ok: true,
       savePath: "D:\\save\\main",
+    });
+    expect(validateConfiguredSavePath(" D:\\save\\partida.sav ", () => true)).toEqual({
+      ok: true,
+      savePath: "D:\\save\\partida.sav",
     });
     expect(
       validateConfiguredSavePath("D:\\save\\folder", (path) => path.endsWith("\\main"), (path) =>

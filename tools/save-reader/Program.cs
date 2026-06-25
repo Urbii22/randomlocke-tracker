@@ -6,7 +6,7 @@ var options = SaveReaderOptions.Parse(args);
 
 if (options is null)
 {
-    Console.Error.WriteLine("Usage: save-reader --save \"path\\to\\main\"");
+    Console.Error.WriteLine("Usage: save-reader --save \"path\\to\\save-file\"");
     Environment.Exit(2);
     return;
 }
@@ -18,7 +18,11 @@ if (!File.Exists(options.SavePath))
     return;
 }
 
-var tempPath = Path.Combine(Path.GetTempPath(), $"randomlocke-save-{Guid.NewGuid():N}.main");
+var tempExtension = Path.GetExtension(options.SavePath);
+var tempPath = Path.Combine(
+    Path.GetTempPath(),
+    $"randomlocke-save-{Guid.NewGuid():N}{(string.IsNullOrWhiteSpace(tempExtension) ? ".sav" : tempExtension)}"
+);
 
 try
 {

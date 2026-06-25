@@ -8,14 +8,14 @@ export function validateConfiguredSavePath(
   resolveDirectorySave?: (path: string) => string | undefined,
 ): SavePathValidationResult {
   if (typeof savePath !== "string" || !savePath.trim()) {
-    return { ok: false, error: "Configura la ruta del archivo main antes de sincronizar." };
+    return { ok: false, error: "Configura la ruta del archivo de save antes de sincronizar." };
   }
 
   const trimmed = savePath.trim();
   const resolved = resolveDirectorySave?.(trimmed) ?? trimmed;
 
   if (!exists(resolved)) {
-    return { ok: false, error: "No se encontro el archivo main en la ruta configurada." };
+    return { ok: false, error: "No se encontro el archivo de save en la ruta configurada." };
   }
 
   return { ok: true, savePath: resolved };

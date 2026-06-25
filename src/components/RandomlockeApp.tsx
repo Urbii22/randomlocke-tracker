@@ -1960,7 +1960,7 @@ function SettingsPanel({
               <h3 className="text-sm font-black uppercase">Actualizar desde save</h3>
             </div>
             <p className="mt-1 text-sm text-pretty text-stone-400">
-              Lee una copia temporal del archivo main y fusiona equipo/caja sin tocar el save original.
+              Lee una copia temporal del archivo de save configurado y fusiona equipo/caja sin tocar el original.
             </p>
           </div>
           <button
@@ -1976,11 +1976,11 @@ function SettingsPanel({
         </div>
 
         <label className="grid gap-2 text-sm font-semibold text-stone-300">
-          Ruta del archivo main
+          Ruta del archivo de save
           <input
             value={saveFilePath}
             onChange={(event) => onSaveFilePathChange(event.target.value)}
-            placeholder="D:\\...\\title\\...\\data\\00000001\\main"
+            placeholder="D:\\...\\title\\...\\data\\00000001\\main o D:\\saves\\partida.sav"
             className="rounded-md border border-stone-700 bg-stone-900 px-3 py-2 font-mono text-sm text-stone-100 outline-none focus:border-amber-300"
           />
         </label>
