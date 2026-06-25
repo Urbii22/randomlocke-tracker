@@ -17,6 +17,7 @@ import {
   HardDrive,
   Leaf,
   Map as MapIcon,
+  Minimize2,
   Moon,
   Mountain,
   Origami,
@@ -591,6 +592,7 @@ function CombatHub({
   const [selectedTargetTypes, setSelectedTargetTypes] = useState<PokemonType[]>([]);
   const [pokedexQuery, setPokedexQuery] = useState("");
   const [selectedOpponent, setSelectedOpponent] = useState<PokedexEntry | undefined>();
+  const [isCompactCombat, setIsCompactCombat] = useState(false);
   const pokedexMatches = useMemo(() => getPokedexMatches(pokedexQuery), [pokedexQuery]);
   const counterMoves = selectedTargetTypes.length > 0
     ? profile.members.flatMap((member) =>
@@ -607,13 +609,28 @@ function CombatHub({
 
   return (
     <section className="grid gap-4">
-      <section className="rounded-md border border-stone-800 bg-stone-900 p-3">
+      <section className={cn("rounded-md border border-stone-800 bg-stone-900", isCompactCombat ? "p-2" : "p-3")}>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="text-xs font-black uppercase text-amber-300">Mesa de combate</p>
-            <h2 className="mt-1 text-xl font-black text-balance text-stone-50">Vista de un vistazo</h2>
+            <h2 className={cn("mt-1 font-black text-balance text-stone-50", isCompactCombat ? "text-lg" : "text-xl")}>
+              Vista de un vistazo
+            </h2>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              className={cn(
+                "secondary-button min-h-8 px-2 py-1 text-xs",
+                isCompactCombat ? "border-amber-300/70 bg-amber-300/10 text-amber-100" : "",
+              )}
+              onClick={() => setIsCompactCombat((current) => !current)}
+              aria-pressed={isCompactCombat}
+              title="Alternar modo compacto"
+            >
+              <Minimize2 size={14} aria-hidden="true" />
+              Compacto
+            </button>
             <button
               type="button"
               className="secondary-button min-h-8 px-2 py-1 text-xs"
@@ -630,7 +647,7 @@ function CombatHub({
           </div>
         </div>
 
-        <div className="mt-3 rounded-md border border-stone-800 bg-stone-950 p-2.5">
+        <div className={cn("rounded-md border border-stone-800 bg-stone-950", isCompactCombat ? "mt-2 p-2" : "mt-3 p-2.5")}>
           <div className="flex items-center justify-between gap-3">
               <h3 className="text-xs font-black uppercase text-stone-300">Tipo rival</h3>
               <div className="flex items-center gap-2">
@@ -655,6 +672,7 @@ function CombatHub({
               query={pokedexQuery}
               matches={pokedexMatches}
               selectedOpponent={selectedOpponent}
+              compact={isCompactCombat}
               onQueryChange={(query) => {
                 setPokedexQuery(query);
               }}
@@ -669,7 +687,7 @@ function CombatHub({
               }}
             />
             <div
-              className="mt-2 grid gap-1.5"
+              className={cn("mt-2 grid", isCompactCombat ? "gap-1" : "gap-1.5")}
               style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}
             >
               {pokemonTypes.map((type) => (
@@ -678,6 +696,7 @@ function CombatHub({
                   type={type}
                   selected={selectedTargetTypes.includes(type)}
                   counterCount={getCounterCount(profile.members, [type])}
+                  compact={isCompactCombat}
                   onClick={() => {
                     setSelectedOpponent(undefined);
                     setSelectedTargetTypes((current) => toggleTargetType(current, type));
@@ -703,12 +722,13 @@ function CombatHub({
           <CombatRosterTable
             members={profile.members}
             selectedTargetTypes={selectedTargetTypes}
+            compact={isCompactCombat}
             onEditPokemon={onEditPokemon}
           />
         )}
       </section>
 
-      <TeamDefenseTable rows={profile.defenseRows} />
+      <TeamDefenseTable rows={profile.defenseRows} compact={isCompactCombat} />
     </section>
   );
 }
@@ -717,19 +737,21 @@ function OpponentSearchPanel({
   query,
   matches,
   selectedOpponent,
+  compact,
   onQueryChange,
   onSelect,
 }: {
   query: string;
   matches: PokedexEntry[];
   selectedOpponent?: PokedexEntry;
+  compact: boolean;
   onQueryChange: (query: string) => void;
   onSelect: (entry: PokedexEntry) => void;
 }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="mt-2 grid gap-3">
+    <div className={cn("mt-2 grid", compact ? "gap-2" : "gap-3")}>
       <label className="grid gap-1 text-[0.65rem] font-black uppercase text-stone-500">
         Buscar rival
         <input
@@ -737,12 +759,15 @@ function OpponentSearchPanel({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Garchomp, Venusaur..."
-          className="h-8 rounded-sm border-stone-700 bg-stone-950 px-2 py-1 text-xs font-semibold normal-case text-stone-100"
+          className={cn(
+            "rounded-sm border-stone-700 bg-stone-950 px-2 py-1 text-xs font-semibold normal-case text-stone-100",
+            compact ? "h-7" : "h-8",
+          )}
         />
       </label>
 
       {query.trim() ? (
-        <div className="grid max-h-32 gap-1 overflow-auto">
+        <div className={cn("grid gap-1 overflow-auto", compact ? "max-h-24" : "max-h-32")}>
           {matches.length > 0 ? (
             matches.map((entry) => (
               <button
@@ -768,82 +793,91 @@ function OpponentSearchPanel({
         </div>
       ) : null}
 
-      {selectedOpponent ? <OpponentSummary entry={selectedOpponent} /> : null}
+      {selectedOpponent ? <OpponentSummary entry={selectedOpponent} compact={compact} /> : null}
     </div>
   );
 }
 
-function OpponentSummary({ entry }: { entry: PokedexEntry }) {
+function OpponentSummary({ entry, compact }: { entry: PokedexEntry; compact: boolean }) {
   const topAttack = Math.max(entry.stats.attack, entry.stats.specialAttack);
   const topDefense = Math.max(entry.stats.defense, entry.stats.specialDefense);
   const defensiveProfile = getTargetDefensiveProfile(entry.types);
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[minmax(18rem,0.85fr)_minmax(0,1fr)] lg:items-start">
-      <div className="grid gap-3 rounded-sm border border-stone-800 bg-stone-950 p-3">
+    <div
+      className={cn(
+        "grid lg:items-start",
+        compact ? "gap-2 lg:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1fr)]" : "gap-3 lg:grid-cols-[minmax(18rem,0.85fr)_minmax(0,1fr)]",
+      )}
+    >
+      <div className={cn("grid rounded-sm border border-stone-800 bg-stone-950", compact ? "gap-2 p-2" : "gap-3 p-3")}>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <p className="text-xl font-black leading-6 text-stone-50">{entry.name}</p>
+            <p className={cn("font-black text-stone-50", compact ? "text-lg leading-5" : "text-xl leading-6")}>{entry.name}</p>
             <p className="font-mono text-xs font-bold text-stone-500">#{entry.id}</p>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className={cn("flex flex-wrap", compact ? "gap-1" : "gap-1.5")}>
             {entry.types.map((type) => (
-              <TypeBadge key={`${entry.id}-${type}`} type={type} />
+              <TypeBadge key={`${entry.id}-${type}`} type={type} compact={compact} />
             ))}
           </div>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2">
-          <OpponentStatGroup label="Ataque">
+        <div className={cn("grid sm:grid-cols-2", compact ? "gap-1.5" : "gap-2")}>
+          <OpponentStatGroup label="Ataque" compact={compact}>
             <OpponentStatChip
               label="Atk"
               value={entry.stats.attack}
               active={entry.stats.attack === topAttack}
               tone="attack"
+              compact={compact}
             />
             <OpponentStatChip
               label="AtE"
               value={entry.stats.specialAttack}
               active={entry.stats.specialAttack === topAttack}
               tone="special"
+              compact={compact}
             />
           </OpponentStatGroup>
-          <OpponentStatGroup label="Defensa">
+          <OpponentStatGroup label="Defensa" compact={compact}>
             <OpponentStatChip
               label="Def"
               value={entry.stats.defense}
               active={entry.stats.defense === topDefense}
               tone="defense"
+              compact={compact}
             />
             <OpponentStatChip
               label="DfE"
               value={entry.stats.specialDefense}
               active={entry.stats.specialDefense === topDefense}
               tone="specialDefense"
+              compact={compact}
             />
           </OpponentStatGroup>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2">
-          <OpponentStatChip label="PS" value={entry.stats.hp} />
-          <OpponentStatChip label="Vel" value={entry.stats.speed} />
+        <div className={cn("grid sm:grid-cols-2", compact ? "gap-1.5" : "gap-2")}>
+          <OpponentStatChip label="PS" value={entry.stats.hp} compact={compact} />
+          <OpponentStatChip label="Vel" value={entry.stats.speed} compact={compact} />
         </div>
       </div>
 
-      <div className="grid gap-2">
-        <OpponentTypeBucket label="Débil a" rows={defensiveProfile.weaknesses} tone="danger" />
-        <OpponentTypeBucket label="Resiste" rows={defensiveProfile.resistances} tone="safe" />
-        <OpponentTypeBucket label="Inmune" rows={defensiveProfile.immunities} tone="immune" />
+      <div className={cn("grid", compact ? "gap-1.5 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3" : "gap-2")}>
+        <OpponentTypeBucket label="Débil a" rows={defensiveProfile.weaknesses} tone="danger" compact={compact} />
+        <OpponentTypeBucket label="Resiste" rows={defensiveProfile.resistances} tone="safe" compact={compact} />
+        <OpponentTypeBucket label="Inmune" rows={defensiveProfile.immunities} tone="immune" compact={compact} />
       </div>
     </div>
   );
 }
 
-function OpponentStatGroup({ label, children }: { label: string; children: ReactNode }) {
+function OpponentStatGroup({ label, children, compact }: { label: string; children: ReactNode; compact: boolean }) {
   return (
-    <div className="grid gap-1.5 rounded-sm border border-stone-800 bg-stone-900 p-2">
+    <div className={cn("grid rounded-sm border border-stone-800 bg-stone-900", compact ? "gap-1 p-1.5" : "gap-1.5 p-2")}>
       <p className="text-[0.68rem] font-black uppercase text-stone-500">{label}</p>
-      <div className="grid gap-1.5">{children}</div>
+      <div className={cn("grid", compact ? "gap-1" : "gap-1.5")}>{children}</div>
     </div>
   );
 }
@@ -853,11 +887,13 @@ function OpponentStatChip({
   value,
   active = false,
   tone = "neutral",
+  compact = false,
 }: {
   label: string;
   value: number;
   active?: boolean;
   tone?: "neutral" | "attack" | "special" | "defense" | "specialDefense";
+  compact?: boolean;
 }) {
   const activeClass = {
     neutral: "border-stone-500 bg-stone-800 text-stone-50",
@@ -870,13 +906,14 @@ function OpponentStatChip({
   return (
     <span
       className={cn(
-        "grid grid-cols-[3.2rem_1fr] items-baseline gap-2 rounded-sm border px-2 py-1.5 font-mono tabular-nums",
+        "grid grid-cols-[3.2rem_1fr] items-baseline gap-2 rounded-sm border font-mono tabular-nums",
+        compact ? "px-1.5 py-1" : "px-2 py-1.5",
         active ? activeClass : "border-stone-800 bg-stone-950 text-stone-400",
       )}
       title={`${label}: ${value}`}
     >
       <span className="text-[0.68rem] font-black uppercase">{label}</span>
-      <span className="text-right text-lg font-black leading-none">{value}</span>
+      <span className={cn("text-right font-black leading-none", compact ? "text-base" : "text-lg")}>{value}</span>
     </span>
   );
 }
@@ -885,10 +922,12 @@ function OpponentTypeBucket({
   label,
   rows,
   tone,
+  compact = false,
 }: {
   label: string;
   rows: TypeMultiplier[];
   tone: "danger" | "safe" | "immune";
+  compact?: boolean;
 }) {
   const toneClass = {
     danger: "border-rose-400/30 bg-rose-500/10 text-rose-100",
@@ -897,12 +936,12 @@ function OpponentTypeBucket({
   }[tone];
 
   return (
-    <div className={cn("rounded-sm border p-2", toneClass)}>
-      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+    <div className={cn("rounded-sm border", compact ? "p-1.5" : "p-2", toneClass)}>
+      <div className={cn("flex items-baseline justify-between gap-2", compact ? "mb-1" : "mb-1.5")}>
         <p className="text-[0.68rem] font-black uppercase opacity-80">{label}</p>
         <span className="font-mono text-[0.65rem] font-black tabular-nums opacity-70">{rows.length}</span>
       </div>
-      <div className="flex min-h-7 flex-wrap gap-1.5">
+      <div className={cn("flex flex-wrap", compact ? "min-h-6 gap-1" : "min-h-7 gap-1.5")}>
         {rows.length > 0 ? (
           rows.map((row) => (
             <TypeBadge
@@ -959,11 +998,13 @@ function TypeTargetButton({
   type,
   selected,
   counterCount,
+  compact = false,
   onClick,
 }: {
   type: PokemonType;
   selected: boolean;
   counterCount: number;
+  compact?: boolean;
   onClick: () => void;
 }) {
   const visual = typeVisuals[type];
@@ -975,7 +1016,8 @@ function TypeTargetButton({
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "relative flex h-8 min-w-0 items-center justify-center gap-1 rounded-sm border px-1 font-black outline-none ring-offset-2 ring-offset-stone-950 transition",
+        "relative flex min-w-0 items-center justify-center gap-1 rounded-sm border px-1 font-black outline-none ring-offset-2 ring-offset-stone-950 transition",
+        compact ? "h-7" : "h-8",
         visual.classes,
         selected
           ? "shadow-[0_0_0_3px_rgba(255,255,255,0.95)] ring-2 ring-white"
@@ -1022,15 +1064,20 @@ function toggleTargetType(current: PokemonType[], type: PokemonType): PokemonTyp
 function CombatRosterTable({
   members,
   selectedTargetTypes,
+  compact,
   onEditPokemon,
 }: {
   members: ReturnType<typeof getTeamCombatProfile>["members"];
   selectedTargetTypes: PokemonType[];
+  compact: boolean;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
   return (
-    <div className="mt-3 overflow-hidden rounded-md border border-stone-800 bg-stone-950">
-      <div className="hidden grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto] gap-2 border-b border-stone-800 px-2.5 py-2 text-[0.65rem] font-black uppercase text-stone-600 xl:grid">
+    <div className={cn("overflow-hidden rounded-md border border-stone-800 bg-stone-950", compact ? "mt-2" : "mt-3")}>
+      <div className={cn(
+        "hidden grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto] gap-2 border-b border-stone-800 px-2.5 text-[0.65rem] font-black uppercase text-stone-600 xl:grid",
+        compact ? "py-1.5" : "py-2",
+      )}>
         <span>Pokémon</span>
         <span>Stats</span>
         <span>Tipos</span>
@@ -1045,6 +1092,7 @@ function CombatRosterTable({
             key={member.pokemon.id}
             member={member}
             selectedTargetTypes={selectedTargetTypes}
+            compact={compact}
             onEditPokemon={onEditPokemon}
           />
         ))}
@@ -1056,10 +1104,12 @@ function CombatRosterTable({
 function CombatRosterRow({
   member,
   selectedTargetTypes,
+  compact,
   onEditPokemon,
 }: {
   member: ReturnType<typeof getTeamCombatProfile>["members"][number];
   selectedTargetTypes: PokemonType[];
+  compact: boolean;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
   const [expandedMoveIndex, setExpandedMoveIndex] = useState<number | undefined>();
@@ -1070,11 +1120,16 @@ function CombatRosterRow({
     : 1;
 
   return (
-    <article className="grid gap-2 px-2.5 py-2.5 xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto] xl:items-center">
+    <article
+      className={cn(
+        "grid px-2.5 xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto] xl:items-center",
+        compact ? "gap-1.5 py-1.5" : "gap-2 py-2.5",
+      )}
+    >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 xl:block">
         <div className="min-w-0">
-          <h3 className="truncate text-base font-black leading-5 text-stone-50">{member.pokemon.nickname}</h3>
-          <p className="text-xs text-stone-400">
+          <h3 className={cn("truncate font-black text-stone-50", compact ? "text-sm leading-4" : "text-base leading-5")}>{member.pokemon.nickname}</h3>
+          <p className={cn("text-stone-400", compact ? "text-[0.68rem]" : "text-xs")}>
             {member.pokemon.species} · Nv. {member.pokemon.level}
           </p>
         </div>
@@ -1087,14 +1142,14 @@ function CombatRosterRow({
 
       <CombatStatsStrip stats={member.pokemon.stats} />
 
-      <div className="grid w-fit grid-cols-1 gap-1.5">
+      <div className={cn("grid w-fit grid-cols-1", compact ? "gap-1" : "gap-1.5")}>
         {member.pokemon.types.map((type, index) => (
           <TypeBadge key={`${type}-${index}`} type={type} compact />
         ))}
       </div>
 
-      <div className="grid gap-1.5">
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-2">
+      <div className={cn("grid", compact ? "gap-1" : "gap-1.5")}>
+        <div className={cn("grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-2", compact ? "gap-1" : "gap-1.5")}>
           {member.moveTypes.map((move, index) => {
             const effectiveness = getMoveEffectivenessAgainstTypes(move.type, selectedTargetTypes);
             const isDamaging = isDamagingMove(move.move);
@@ -1440,17 +1495,23 @@ function TypeBadge({
   );
 }
 
-function TeamDefenseTable({ rows }: { rows: ReturnType<typeof getTeamCombatProfile>["defenseRows"] }) {
+function TeamDefenseTable({
+  rows,
+  compact,
+}: {
+  rows: ReturnType<typeof getTeamCombatProfile>["defenseRows"];
+  compact: boolean;
+}) {
   const visibleRows = rows.filter(
     (row) => row.weakTo.length > 0 || row.resists.length > 0 || row.immune.length > 0,
   );
 
   return (
-    <section className="rounded-md border border-stone-800 bg-stone-900 p-4">
+    <section className={cn("rounded-md border border-stone-800 bg-stone-900", compact ? "p-3" : "p-4")}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black text-balance text-stone-50">Matriz defensiva</h2>
-          <p className="mt-1 text-sm text-pretty text-stone-400">
+          <h2 className={cn("font-black text-balance text-stone-50", compact ? "text-lg" : "text-xl")}>Matriz defensiva</h2>
+          <p className={cn("mt-1 text-pretty text-stone-400", compact ? "text-xs" : "text-sm")}>
             Rojo es peligro, verde es cambio cómodo y azul entra gratis.
           </p>
         </div>
@@ -1461,11 +1522,14 @@ function TeamDefenseTable({ rows }: { rows: ReturnType<typeof getTeamCombatProfi
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2">
+      <div className={cn("grid", compact ? "mt-3 gap-1.5" : "mt-4 gap-2")}>
         {visibleRows.map((row) => (
           <div
             key={row.type}
-            className="grid gap-2 rounded-md border border-stone-800 bg-stone-950 p-2 lg:grid-cols-[8.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]"
+            className={cn(
+              "grid rounded-md border border-stone-800 bg-stone-950 lg:grid-cols-[8.5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]",
+              compact ? "gap-1.5 p-1.5" : "gap-2 p-2",
+            )}
           >
             <div className="flex items-center">
               <TypeBadge type={row.type} />
