@@ -728,7 +728,7 @@ function CombatHub({
         )}
       </section>
 
-      <TeamDefenseTable rows={profile.defenseRows} compact={isCompactCombat} />
+      {!isCompactCombat ? <TeamDefenseTable rows={profile.defenseRows} compact={false} /> : null}
     </section>
   );
 }
@@ -858,10 +858,12 @@ function OpponentSummary({ entry, compact }: { entry: PokedexEntry; compact: boo
           </OpponentStatGroup>
         </div>
 
-        <div className={cn("grid sm:grid-cols-2", compact ? "gap-1.5" : "gap-2")}>
-          <OpponentStatChip label="PS" value={entry.stats.hp} compact={compact} />
-          <OpponentStatChip label="Vel" value={entry.stats.speed} compact={compact} />
-        </div>
+        {!compact ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <OpponentStatChip label="PS" value={entry.stats.hp} />
+            <OpponentStatChip label="Vel" value={entry.stats.speed} />
+          </div>
+        ) : null}
       </div>
 
       <div className={cn("grid", compact ? "gap-1.5 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3" : "gap-2")}>
@@ -1072,10 +1074,15 @@ function CombatRosterTable({
   compact: boolean;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
+  const rosterColumns = compact
+    ? "xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.95fr_1.35fr_auto]"
+    : "xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto]";
+
   return (
     <div className={cn("overflow-hidden rounded-md border border-stone-800 bg-stone-950", compact ? "mt-2" : "mt-3")}>
       <div className={cn(
-        "hidden grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto] gap-2 border-b border-stone-800 px-2.5 text-[0.65rem] font-black uppercase text-stone-600 xl:grid",
+        "hidden gap-2 border-b border-stone-800 px-2.5 text-[0.65rem] font-black uppercase text-stone-600 xl:grid",
+        rosterColumns,
         compact ? "py-1.5" : "py-2",
       )}>
         <span>Pokémon</span>
@@ -1083,7 +1090,7 @@ function CombatRosterTable({
         <span>Tipos</span>
         <span>Movimientos</span>
         <span>Sufre</span>
-        <span>Entra</span>
+        {!compact ? <span>Entra</span> : null}
         <span />
       </div>
       <div className="divide-y divide-stone-800">
@@ -1112,6 +1119,9 @@ function CombatRosterRow({
   compact: boolean;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
+  const rosterColumns = compact
+    ? "xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.95fr_1.35fr_auto]"
+    : "xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto]";
   const [expandedMoveIndex, setExpandedMoveIndex] = useState<number | undefined>();
   const expandedMove =
     expandedMoveIndex === undefined ? undefined : member.moveTypes[expandedMoveIndex];
@@ -1122,7 +1132,8 @@ function CombatRosterRow({
   return (
     <article
       className={cn(
-        "grid px-2.5 xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto] xl:items-center",
+        "grid px-2.5 xl:items-center",
+        rosterColumns,
         compact ? "gap-1.5 py-1.5" : "gap-2 py-2.5",
       )}
     >
@@ -1186,16 +1197,18 @@ function CombatRosterRow({
         <CompactTypeList rows={member.defensiveProfile.weaknesses} tone="danger" />
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        <TypeCount
-          count={member.defensiveProfile.resistances.length + member.defensiveProfile.immunities.length}
-          tone="safe"
-        />
-        <CompactTypeList
-          rows={[...member.defensiveProfile.immunities, ...member.defensiveProfile.resistances]}
-          tone="safe"
-        />
-      </div>
+      {!compact ? (
+        <div className="flex flex-wrap gap-1.5">
+          <TypeCount
+            count={member.defensiveProfile.resistances.length + member.defensiveProfile.immunities.length}
+            tone="safe"
+          />
+          <CompactTypeList
+            rows={[...member.defensiveProfile.immunities, ...member.defensiveProfile.resistances]}
+            tone="safe"
+          />
+        </div>
+      ) : null}
 
       <button type="button" onClick={() => onEditPokemon(member.pokemon)} className="mini-button hidden min-h-8 px-2 py-1 text-xs xl:inline-flex">
         Editar
