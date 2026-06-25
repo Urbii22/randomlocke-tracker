@@ -427,6 +427,8 @@ export function RandomlockeApp() {
             <>
               <CombatHub
                 profile={combatProfile}
+                onSyncFromSave={() => void syncFromSave()}
+                isSyncingSave={isSyncingSave}
                 onEditPokemon={(pokemon) => {
                   setEditing(pokemon);
                   setIsPokemonPanelOpen(true);
@@ -576,9 +578,13 @@ function SideStat({ label, value }: { label: string; value: string | number }) {
 
 function CombatHub({
   profile,
+  onSyncFromSave,
+  isSyncingSave,
   onEditPokemon,
 }: {
   profile: ReturnType<typeof getTeamCombatProfile>;
+  onSyncFromSave: () => void;
+  isSyncingSave: boolean;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
   const [selectedTargetTypes, setSelectedTargetTypes] = useState<PokemonType[]>([]);
@@ -615,9 +621,21 @@ function CombatHub({
                 <p className="text-xs font-black uppercase text-amber-300">Mesa de combate</p>
                 <h2 className="mt-1 text-xl font-black text-balance text-stone-50">Vista de un vistazo</h2>
               </div>
-              <span className="rounded-sm border border-stone-700 bg-stone-950 px-2 py-1 font-mono text-xs font-bold tabular-nums text-stone-300">
-                {profile.members.length}/6 activos
-              </span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  className="secondary-button min-h-8 px-2 py-1 text-xs"
+                  onClick={onSyncFromSave}
+                  disabled={isSyncingSave}
+                  title="Actualizar desde save"
+                >
+                  <RefreshCw size={14} aria-hidden="true" className={isSyncingSave ? "animate-spin" : ""} />
+                  {isSyncingSave ? "Leyendo..." : "Actualizar"}
+                </button>
+                <span className="rounded-sm border border-stone-700 bg-stone-950 px-2 py-1 font-mono text-xs font-bold tabular-nums text-stone-300">
+                  {profile.members.length}/6 activos
+                </span>
+              </div>
             </div>
 
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
