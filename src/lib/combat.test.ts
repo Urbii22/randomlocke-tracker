@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Pokemon } from "@/types/randomlocke";
 import {
+  getBestMoveEffectivenessAgainstTargets,
   getMoveEffectivenessAgainstTypes,
   getMoveType,
   getPokemonDefensiveProfile,
@@ -122,5 +123,12 @@ describe("combat helpers", () => {
     expect(getMoveEffectivenessAgainstTypes("Roca", ["Fuego", "Volador"])).toBe(4);
     expect(getMoveEffectivenessAgainstTypes("Eléctrico", ["Agua", "Tierra"])).toBe(0);
     expect(getMoveEffectivenessAgainstTypes(undefined, ["Agua", "Tierra"])).toBe(1);
+  });
+  it("uses the best separate target effectiveness in double battles", () => {
+    expect(getBestMoveEffectivenessAgainstTargets("Roca", [["Fuego", "Volador"], ["Agua", "Tierra"]])).toBe(4);
+    expect(getBestMoveEffectivenessAgainstTargets("Agua", [["Fuego"], ["Planta"]])).toBe(2);
+    expect(getBestMoveEffectivenessAgainstTargets("Normal", [["Fantasma"], ["Roca"]])).toBe(0.5);
+    expect(getBestMoveEffectivenessAgainstTargets(undefined, [["Agua"], ["Fuego"]])).toBe(1);
+    expect(getBestMoveEffectivenessAgainstTargets("Planta", [])).toBe(1);
   });
 });

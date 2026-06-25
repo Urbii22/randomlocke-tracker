@@ -233,6 +233,21 @@ export function getMoveEffectivenessAgainstTypes(
   return getDefensiveMultiplier(moveType, defenderTypes);
 }
 
+export function getBestMoveEffectivenessAgainstTargets(
+  moveType: PokemonType | undefined,
+  defenderTypeGroups: PokemonType[][],
+): number {
+  const targetGroups = defenderTypeGroups.filter((types) => types.length > 0);
+
+  if (!moveType || targetGroups.length === 0) {
+    return 1;
+  }
+
+  return Math.max(
+    ...targetGroups.map((defenderTypes) => getMoveEffectivenessAgainstTypes(moveType, defenderTypes)),
+  );
+}
+
 export function getPokemonDefensiveProfile(pokemon: Pokemon): CombatMember["defensiveProfile"] {
   const defenderTypes = pokemon.types
     .map(normalizePokemonType)

@@ -41,7 +41,7 @@ import { pokedexEntries, type PokedexEntry } from "@/data/pokedex";
 import { useLocalStorageGameState } from "@/hooks/useLocalStorageGameState";
 import {
   getDefensiveMultiplier,
-  getMoveEffectivenessAgainstTypes,
+  getBestMoveEffectivenessAgainstTargets,
   getTeamCombatProfile,
   normalizePokemonType,
   pokemonTypes,
@@ -589,23 +589,59 @@ function CombatHub({
   isSyncingSave: boolean;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
-  const [selectedTargetTypes, setSelectedTargetTypes] = useState<PokemonType[]>([]);
-  const [pokedexQuery, setPokedexQuery] = useState("");
-  const [selectedOpponent, setSelectedOpponent] = useState<PokedexEntry | undefined>();
+  const [targetMode, setTargetMode] = useState<"single" | "double">("single");
+  const [activeTargetIndex, setActiveTargetIndex] = useState(0);
+  const [targetTypeSlots, setTargetTypeSlots] = useState<PokemonType[][]>([[], []]);
+  const [pokedexQueries, setPokedexQueries] = useState(["", ""]);
+  const [selectedOpponents, setSelectedOpponents] = useState<Array<PokedexEntry | undefined>>([undefined, undefined]);
   const [isCompactCombat, setIsCompactCombat] = useState(false);
-  const pokedexMatches = useMemo(() => getPokedexMatches(pokedexQuery), [pokedexQuery]);
-  const counterMoves = selectedTargetTypes.length > 0
+  const targetCount = targetMode === "double" ? 2 : 1;
+  const targetTypeGroups = targetTypeSlots.slice(0, targetCount).filter((types) => types.length > 0);
+  const activeTargetTypes = targetTypeSlots[activeTargetIndex] ?? [];
+  const hasTargets = targetTypeGroups.length > 0;
+  const pokedexMatches = useMemo(
+    () => pokedexQueries.map((query) => getPokedexMatches(query)),
+    [pokedexQueries],
+  );
+  const counterMoves = hasTargets
     ? profile.members.flatMap((member) =>
         member.moveTypes
           .filter(({ move }) => isDamagingMove(move))
           .map((move) => ({
             pokemon: member.pokemon.nickname,
             move: move.move.name,
-            multiplier: getMoveEffectivenessAgainstTypes(move.type, selectedTargetTypes),
+            multiplier: getBestMoveEffectivenessAgainstTargets(move.type, targetTypeGroups),
           }))
           .filter((move) => move.multiplier > 1),
       )
     : [];
+  const clearTargets = () => {
+    setTargetTypeSlots([[], []]);
+    setSelectedOpponents([undefined, undefined]);
+    setPokedexQueries(["", ""]);
+  };
+  const setTargetQuery = (index: number, query: string) => {
+    setPokedexQueries((current) => current.map((value, entryIndex) => (entryIndex === index ? query : value)));
+  };
+  const selectTargetOpponent = (index: number, entry: PokedexEntry) => {
+    setSelectedOpponents((current) => current.map((value, entryIndex) => (entryIndex === index ? entry : value)));
+    setTargetQuery(index, "");
+    setTargetTypeSlots((current) =>
+      current.map((types, entryIndex) =>
+        entryIndex === index
+          ? entry.types
+              .map(normalizeTypeForUi)
+              .filter((type): type is PokemonType => Boolean(type))
+          : types,
+      ),
+    );
+  };
+  const toggleActiveTargetType = (type: PokemonType) => {
+    setSelectedOpponents((current) => current.map((value, index) => (index === activeTargetIndex ? undefined : value)));
+    setTargetTypeSlots((current) =>
+      current.map((types, index) => (index === activeTargetIndex ? toggleTargetType(types, type) : types)),
+    );
+  };
 
   return (
     <section className="grid gap-4">
@@ -652,40 +688,98 @@ function CombatHub({
               <h3 className="text-xs font-black uppercase text-stone-300">Tipo rival</h3>
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-bold text-stone-500">
-                  {selectedTargetTypes.length > 0 ? `${counterMoves.length} counters` : "elige tipos"}
+                  {hasTargets ? `${counterMoves.length} counters` : "elige tipos"}
                 </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedTargetTypes([]);
-                    setSelectedOpponent(undefined);
-                    setPokedexQuery("");
-                  }}
-                  disabled={selectedTargetTypes.length === 0 && !selectedOpponent && !pokedexQuery}
+                  onClick={clearTargets}
+                  disabled={!hasTargets && !selectedOpponents.some(Boolean) && pokedexQueries.every((query) => !query)}
                   className="rounded-sm border border-stone-700 bg-stone-900 px-1.5 py-0.5 text-[0.58rem] font-black uppercase text-stone-400 hover:border-amber-200 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-stone-700 disabled:hover:text-stone-400"
                 >
                   Limpiar
                 </button>
               </div>
             </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(["single", "double"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={targetMode === mode}
+                  onClick={() => {
+                    setTargetMode(mode);
+                    setActiveTargetIndex(0);
+                  }}
+                  className={cn(
+                    "rounded-sm border px-2 py-1 text-[0.65rem] font-black uppercase",
+                    targetMode === mode
+                      ? "border-amber-300/70 bg-amber-300/10 text-amber-100"
+                      : "border-stone-700 bg-stone-900 text-stone-400 hover:border-stone-500 hover:text-stone-200",
+                  )}
+                >
+                  {mode === "single" ? "1 rival" : "2 rivales"}
+                </button>
+              ))}
+            </div>
+            <div className={cn("grid", targetMode === "double" ? "gap-2 lg:grid-cols-2" : "gap-2")}>
             <OpponentSearchPanel
-              query={pokedexQuery}
-              matches={pokedexMatches}
-              selectedOpponent={selectedOpponent}
+              label="Rival 1"
+              active={activeTargetIndex === 0}
+              query={pokedexQueries[0] ?? ""}
+              matches={pokedexMatches[0] ?? []}
+              selectedOpponent={selectedOpponents[0]}
               compact={isCompactCombat}
+              onActivate={() => setActiveTargetIndex(0)}
               onQueryChange={(query) => {
-                setPokedexQuery(query);
+                setTargetQuery(0, query);
               }}
               onSelect={(entry) => {
-                setSelectedOpponent(entry);
-                setPokedexQuery("");
-                setSelectedTargetTypes(
-                  entry.types
-                    .map(normalizeTypeForUi)
-                    .filter((type): type is PokemonType => Boolean(type)),
-                );
+                selectTargetOpponent(0, entry);
               }}
             />
+            {targetMode === "double" ? (
+              <OpponentSearchPanel
+                label="Rival 2"
+                active={activeTargetIndex === 1}
+                query={pokedexQueries[1] ?? ""}
+                matches={pokedexMatches[1] ?? []}
+                selectedOpponent={selectedOpponents[1]}
+                compact={isCompactCombat}
+                onActivate={() => setActiveTargetIndex(1)}
+                onQueryChange={(query) => {
+                  setTargetQuery(1, query);
+                }}
+                onSelect={(entry) => {
+                  selectTargetOpponent(1, entry);
+                }}
+              />
+            ) : null}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[0.65rem] font-black uppercase text-stone-500">
+                Editando {targetMode === "double" ? `rival ${activeTargetIndex + 1}` : "rival"}
+              </span>
+              {targetMode === "double" ? (
+                <div className="flex gap-1">
+                  {[0, 1].map((index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      aria-pressed={activeTargetIndex === index}
+                      onClick={() => setActiveTargetIndex(index)}
+                      className={cn(
+                        "rounded-sm border px-2 py-1 font-mono text-[0.65rem] font-black",
+                        activeTargetIndex === index
+                          ? "border-amber-300/70 bg-amber-300/10 text-amber-100"
+                          : "border-stone-700 bg-stone-900 text-stone-400",
+                      )}
+                    >
+                      R{index + 1}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <div
               className={cn("mt-2 grid", isCompactCombat ? "gap-1" : "gap-1.5")}
               style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}
@@ -694,19 +788,18 @@ function CombatHub({
                 <TypeTargetButton
                   key={type}
                   type={type}
-                  selected={selectedTargetTypes.includes(type)}
-                  counterCount={getCounterCount(profile.members, [type])}
+                  selected={activeTargetTypes.includes(type)}
+                  counterCount={getCounterCount(profile.members, [[type]])}
                   compact={isCompactCombat}
                   onClick={() => {
-                    setSelectedOpponent(undefined);
-                    setSelectedTargetTypes((current) => toggleTargetType(current, type));
+                    toggleActiveTargetType(type);
                   }}
                 />
               ))}
             </div>
             <p className="mt-2 text-xs font-semibold text-stone-500">
-              {selectedTargetTypes.length > 0
-                ? `Rival: ${selectedTargetTypes.join(" + ")}. Verde pega bien, rojo pega mal y azul no afecta.`
+              {hasTargets
+                ? `Rival: ${formatTargetGroups(targetTypeGroups)}. Verde pega bien a alguno, rojo pega mal y azul no afecta.`
                 : "Pulsa uno o dos tipos del rival para ver qué ataques le pegan eficazmente."}
             </p>
         </div>
@@ -721,7 +814,7 @@ function CombatHub({
         ) : (
           <CombatRosterTable
             members={profile.members}
-            selectedTargetTypes={selectedTargetTypes}
+            targetTypeGroups={targetTypeGroups}
             compact={isCompactCombat}
             onEditPokemon={onEditPokemon}
           />
@@ -734,26 +827,40 @@ function CombatHub({
 }
 
 function OpponentSearchPanel({
+  label = "Rival 1",
+  active = true,
   query,
   matches,
   selectedOpponent,
   compact,
+  onActivate,
   onQueryChange,
   onSelect,
 }: {
+  label?: string;
+  active?: boolean;
   query: string;
   matches: PokedexEntry[];
   selectedOpponent?: PokedexEntry;
   compact: boolean;
+  onActivate?: () => void;
   onQueryChange: (query: string) => void;
   onSelect: (entry: PokedexEntry) => void;
 }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className={cn("mt-2 grid", compact ? "gap-2" : "gap-3")}>
+    <div
+      className={cn(
+        "mt-2 grid rounded-sm border",
+        compact ? "gap-2 p-1.5" : "gap-3 p-2",
+        active ? "border-amber-300/40 bg-amber-300/[0.03]" : "border-stone-800 bg-stone-950",
+      )}
+      onFocus={onActivate}
+      onClick={onActivate}
+    >
       <label className="grid gap-1 text-[0.65rem] font-black uppercase text-stone-500">
-        Buscar rival
+        Buscar {label}
         <input
           ref={searchInputRef}
           value={query}
@@ -1040,12 +1147,12 @@ function TypeTargetButton({
 
 function getCounterCount(
   members: ReturnType<typeof getTeamCombatProfile>["members"],
-  targetTypes: PokemonType[],
+  targetGroups: PokemonType[][],
 ): number {
   return members.reduce(
     (count, member) =>
       count + member.moveTypes.filter(
-        (move) => isDamagingMove(move.move) && getMoveEffectivenessAgainstTypes(move.type, targetTypes) > 1,
+        (move) => isDamagingMove(move.move) && getBestMoveEffectivenessAgainstTargets(move.type, targetGroups) > 1,
       ).length,
     0,
   );
@@ -1063,14 +1170,20 @@ function toggleTargetType(current: PokemonType[], type: PokemonType): PokemonTyp
   return [...current, type];
 }
 
+function formatTargetGroups(targetGroups: PokemonType[][]): string {
+  return targetGroups
+    .map((types, index) => `R${index + 1}: ${types.join(" + ")}`)
+    .join(" / ");
+}
+
 function CombatRosterTable({
   members,
-  selectedTargetTypes,
+  targetTypeGroups,
   compact,
   onEditPokemon,
 }: {
   members: ReturnType<typeof getTeamCombatProfile>["members"];
-  selectedTargetTypes: PokemonType[];
+  targetTypeGroups: PokemonType[][];
   compact: boolean;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
@@ -1098,7 +1211,7 @@ function CombatRosterTable({
           <CombatRosterRow
             key={member.pokemon.id}
             member={member}
-            selectedTargetTypes={selectedTargetTypes}
+            targetTypeGroups={targetTypeGroups}
             compact={compact}
             onEditPokemon={onEditPokemon}
           />
@@ -1110,12 +1223,12 @@ function CombatRosterTable({
 
 function CombatRosterRow({
   member,
-  selectedTargetTypes,
+  targetTypeGroups,
   compact,
   onEditPokemon,
 }: {
   member: ReturnType<typeof getTeamCombatProfile>["members"][number];
-  selectedTargetTypes: PokemonType[];
+  targetTypeGroups: PokemonType[][];
   compact: boolean;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
@@ -1126,8 +1239,9 @@ function CombatRosterRow({
   const expandedMove =
     expandedMoveIndex === undefined ? undefined : member.moveTypes[expandedMoveIndex];
   const expandedEffectiveness = expandedMove
-    ? getMoveEffectivenessAgainstTypes(expandedMove.type, selectedTargetTypes)
+    ? getBestMoveEffectivenessAgainstTargets(expandedMove.type, targetTypeGroups)
     : 1;
+  const hasTargets = targetTypeGroups.length > 0;
 
   return (
     <article
@@ -1162,7 +1276,7 @@ function CombatRosterRow({
       <div className={cn("grid", compact ? "gap-1" : "gap-1.5")}>
         <div className={cn("grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-2", compact ? "gap-1" : "gap-1.5")}>
           {member.moveTypes.map((move, index) => {
-            const effectiveness = getMoveEffectivenessAgainstTypes(move.type, selectedTargetTypes);
+            const effectiveness = getBestMoveEffectivenessAgainstTargets(move.type, targetTypeGroups);
             const isDamaging = isDamagingMove(move.move);
 
             return (
@@ -1173,7 +1287,7 @@ function CombatRosterRow({
                 effectiveness={effectiveness}
                 isDamaging={isDamaging}
                 isExpanded={expandedMoveIndex === index}
-                isDimmed={selectedTargetTypes.length > 0 && (!isDamaging || effectiveness === 1)}
+                isDimmed={hasTargets && (!isDamaging || effectiveness === 1)}
                 onClick={() =>
                   setExpandedMoveIndex((current) => (current === index ? undefined : index))
                 }
@@ -1187,7 +1301,7 @@ function CombatRosterRow({
             type={expandedMove.type}
             effectiveness={expandedEffectiveness}
             isDamaging={isDamagingMove(expandedMove.move)}
-            hasTarget={selectedTargetTypes.length > 0}
+            hasTarget={hasTargets}
           />
         ) : null}
       </div>
