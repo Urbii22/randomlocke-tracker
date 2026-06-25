@@ -8,9 +8,9 @@ export type PokedexEntry = {
   stats: PokemonStats;
 };
 
-// Standard Pokemon data for Generations 1-6, generated from PokeAPI.
+// Standard Pokemon data for Generations 1-6 plus official Mega Evolutions, generated from PokeAPI.
 // Source: https://pokeapi.co/docs/v2
-export const pokedexEntries: PokedexEntry[] = [
+const standardPokedexEntries: PokedexEntry[] = [
   {"id":1,"name":"Bulbasaur","search":"bulbasaur bulbasaur","types":["Planta","Veneno"],"stats":{"hp":45,"attack":49,"defense":49,"specialAttack":65,"specialDefense":65,"speed":45}},
   {"id":2,"name":"Ivysaur","search":"ivysaur ivysaur","types":["Planta","Veneno"],"stats":{"hp":60,"attack":62,"defense":63,"specialAttack":80,"specialDefense":80,"speed":60}},
   {"id":3,"name":"Venusaur","search":"venusaur venusaur","types":["Planta","Veneno"],"stats":{"hp":80,"attack":82,"defense":83,"specialAttack":100,"specialDefense":100,"speed":80}},
@@ -732,4 +732,60 @@ export const pokedexEntries: PokedexEntry[] = [
   {"id":719,"name":"Diancie","search":"diancie diancie","types":["Roca","Hada"],"stats":{"hp":50,"attack":100,"defense":150,"specialAttack":100,"specialDefense":150,"speed":50}},
   {"id":720,"name":"Hoopa","search":"hoopa hoopa","types":["Psiquico","Fantasma"],"stats":{"hp":80,"attack":110,"defense":60,"specialAttack":150,"specialDefense":130,"speed":70}},
   {"id":721,"name":"Volcanion","search":"volcanion volcanion","types":["Fuego","Agua"],"stats":{"hp":80,"attack":110,"defense":120,"specialAttack":130,"specialDefense":90,"speed":70}},
+];
+
+const megaPokedexEntries: PokedexEntry[] = [
+  {"id":10060,"name":"Mega Abomasnow","search":"mega abomasnow abomasnow-mega abomasnow","types":["Planta","Hielo"],"stats":{"hp":90,"attack":132,"defense":105,"specialAttack":132,"specialDefense":105,"speed":30}},
+  {"id":10057,"name":"Mega Absol","search":"mega absol absol-mega absol","types":["Siniestro"],"stats":{"hp":65,"attack":150,"defense":60,"specialAttack":115,"specialDefense":60,"speed":115}},
+  {"id":10042,"name":"Mega Aerodactyl","search":"mega aerodactyl aerodactyl-mega aerodactyl","types":["Roca","Volador"],"stats":{"hp":80,"attack":135,"defense":85,"specialAttack":70,"specialDefense":95,"speed":150}},
+  {"id":10053,"name":"Mega Aggron","search":"mega aggron aggron-mega aggron","types":["Acero"],"stats":{"hp":70,"attack":140,"defense":230,"specialAttack":60,"specialDefense":80,"speed":50}},
+  {"id":10037,"name":"Mega Alakazam","search":"mega alakazam alakazam-mega alakazam","types":["Psiquico"],"stats":{"hp":55,"attack":50,"defense":65,"specialAttack":175,"specialDefense":105,"speed":150}},
+  {"id":10067,"name":"Mega Altaria","search":"mega altaria altaria-mega altaria","types":["Dragon","Hada"],"stats":{"hp":75,"attack":110,"defense":110,"specialAttack":110,"specialDefense":105,"speed":80}},
+  {"id":10045,"name":"Mega Ampharos","search":"mega ampharos ampharos-mega ampharos","types":["Electrico","Dragon"],"stats":{"hp":90,"attack":95,"defense":105,"specialAttack":165,"specialDefense":110,"speed":45}},
+  {"id":10069,"name":"Mega Audino","search":"mega audino audino-mega audino","types":["Normal","Hada"],"stats":{"hp":103,"attack":60,"defense":126,"specialAttack":80,"specialDefense":126,"speed":50}},
+  {"id":10056,"name":"Mega Banette","search":"mega banette banette-mega banette","types":["Fantasma"],"stats":{"hp":64,"attack":165,"defense":75,"specialAttack":93,"specialDefense":83,"speed":75}},
+  {"id":10090,"name":"Mega Beedrill","search":"mega beedrill beedrill-mega beedrill","types":["Bicho","Veneno"],"stats":{"hp":65,"attack":150,"defense":40,"specialAttack":15,"specialDefense":80,"speed":145}},
+  {"id":10036,"name":"Mega Blastoise","search":"mega blastoise blastoise-mega blastoise","types":["Agua"],"stats":{"hp":79,"attack":103,"defense":120,"specialAttack":135,"specialDefense":115,"speed":78}},
+  {"id":10050,"name":"Mega Blaziken","search":"mega blaziken blaziken-mega blaziken","types":["Fuego","Lucha"],"stats":{"hp":80,"attack":160,"defense":80,"specialAttack":130,"specialDefense":80,"speed":100}},
+  {"id":10087,"name":"Mega Camerupt","search":"mega camerupt camerupt-mega camerupt","types":["Fuego","Tierra"],"stats":{"hp":70,"attack":120,"defense":100,"specialAttack":145,"specialDefense":105,"speed":20}},
+  {"id":10034,"name":"Mega Charizard X","search":"mega charizard x charizard-mega-x charizard-x","types":["Fuego","Dragon"],"stats":{"hp":78,"attack":130,"defense":111,"specialAttack":130,"specialDefense":85,"speed":100}},
+  {"id":10035,"name":"Mega Charizard Y","search":"mega charizard y charizard-mega-y charizard-y","types":["Fuego","Volador"],"stats":{"hp":78,"attack":104,"defense":78,"specialAttack":159,"specialDefense":115,"speed":100}},
+  {"id":10075,"name":"Mega Diancie","search":"mega diancie diancie-mega diancie","types":["Roca","Hada"],"stats":{"hp":50,"attack":160,"defense":110,"specialAttack":160,"specialDefense":110,"speed":110}},
+  {"id":10068,"name":"Mega Gallade","search":"mega gallade gallade-mega gallade","types":["Psiquico","Lucha"],"stats":{"hp":68,"attack":165,"defense":95,"specialAttack":65,"specialDefense":115,"speed":110}},
+  {"id":10058,"name":"Mega Garchomp","search":"mega garchomp garchomp-mega garchomp","types":["Dragon","Tierra"],"stats":{"hp":108,"attack":170,"defense":115,"specialAttack":120,"specialDefense":95,"speed":92}},
+  {"id":10051,"name":"Mega Gardevoir","search":"mega gardevoir gardevoir-mega gardevoir","types":["Psiquico","Hada"],"stats":{"hp":68,"attack":85,"defense":65,"specialAttack":165,"specialDefense":135,"speed":100}},
+  {"id":10038,"name":"Mega Gengar","search":"mega gengar gengar-mega gengar","types":["Fantasma","Veneno"],"stats":{"hp":60,"attack":65,"defense":80,"specialAttack":170,"specialDefense":95,"speed":130}},
+  {"id":10074,"name":"Mega Glalie","search":"mega glalie glalie-mega glalie","types":["Hielo"],"stats":{"hp":80,"attack":120,"defense":80,"specialAttack":120,"specialDefense":80,"speed":100}},
+  {"id":10041,"name":"Mega Gyarados","search":"mega gyarados gyarados-mega gyarados","types":["Agua","Siniestro"],"stats":{"hp":95,"attack":155,"defense":109,"specialAttack":70,"specialDefense":130,"speed":81}},
+  {"id":10047,"name":"Mega Heracross","search":"mega heracross heracross-mega heracross","types":["Bicho","Lucha"],"stats":{"hp":80,"attack":185,"defense":115,"specialAttack":40,"specialDefense":105,"speed":75}},
+  {"id":10048,"name":"Mega Houndoom","search":"mega houndoom houndoom-mega houndoom","types":["Siniestro","Fuego"],"stats":{"hp":75,"attack":90,"defense":90,"specialAttack":140,"specialDefense":90,"speed":115}},
+  {"id":10039,"name":"Mega Kangaskhan","search":"mega kangaskhan kangaskhan-mega kangaskhan","types":["Normal"],"stats":{"hp":105,"attack":125,"defense":100,"specialAttack":60,"specialDefense":100,"speed":100}},
+  {"id":10062,"name":"Mega Latias","search":"mega latias latias-mega latias","types":["Dragon","Psiquico"],"stats":{"hp":80,"attack":100,"defense":120,"specialAttack":140,"specialDefense":150,"speed":110}},
+  {"id":10063,"name":"Mega Latios","search":"mega latios latios-mega latios","types":["Dragon","Psiquico"],"stats":{"hp":80,"attack":130,"defense":100,"specialAttack":160,"specialDefense":120,"speed":110}},
+  {"id":10088,"name":"Mega Lopunny","search":"mega lopunny lopunny-mega lopunny","types":["Normal","Lucha"],"stats":{"hp":65,"attack":136,"defense":94,"specialAttack":54,"specialDefense":96,"speed":135}},
+  {"id":10059,"name":"Mega Lucario","search":"mega lucario lucario-mega lucario","types":["Lucha","Acero"],"stats":{"hp":70,"attack":145,"defense":88,"specialAttack":140,"specialDefense":70,"speed":112}},
+  {"id":10055,"name":"Mega Manectric","search":"mega manectric manectric-mega manectric","types":["Electrico"],"stats":{"hp":70,"attack":75,"defense":80,"specialAttack":135,"specialDefense":80,"speed":135}},
+  {"id":10052,"name":"Mega Mawile","search":"mega mawile mawile-mega mawile","types":["Acero","Hada"],"stats":{"hp":50,"attack":105,"defense":125,"specialAttack":55,"specialDefense":95,"speed":50}},
+  {"id":10054,"name":"Mega Medicham","search":"mega medicham medicham-mega medicham","types":["Lucha","Psiquico"],"stats":{"hp":60,"attack":100,"defense":85,"specialAttack":80,"specialDefense":85,"speed":100}},
+  {"id":10076,"name":"Mega Metagross","search":"mega metagross metagross-mega metagross","types":["Acero","Psiquico"],"stats":{"hp":80,"attack":145,"defense":150,"specialAttack":105,"specialDefense":110,"speed":110}},
+  {"id":10043,"name":"Mega Mewtwo X","search":"mega mewtwo x mewtwo-mega-x mewtwo-x","types":["Psiquico","Lucha"],"stats":{"hp":106,"attack":190,"defense":100,"specialAttack":154,"specialDefense":100,"speed":130}},
+  {"id":10044,"name":"Mega Mewtwo Y","search":"mega mewtwo y mewtwo-mega-y mewtwo-y","types":["Psiquico"],"stats":{"hp":106,"attack":150,"defense":70,"specialAttack":194,"specialDefense":120,"speed":140}},
+  {"id":10073,"name":"Mega Pidgeot","search":"mega pidgeot pidgeot-mega pidgeot","types":["Normal","Volador"],"stats":{"hp":83,"attack":80,"defense":80,"specialAttack":135,"specialDefense":80,"speed":121}},
+  {"id":10040,"name":"Mega Pinsir","search":"mega pinsir pinsir-mega pinsir","types":["Bicho","Volador"],"stats":{"hp":65,"attack":155,"defense":120,"specialAttack":65,"specialDefense":90,"speed":105}},
+  {"id":10079,"name":"Mega Rayquaza","search":"mega rayquaza rayquaza-mega rayquaza","types":["Dragon","Volador"],"stats":{"hp":105,"attack":180,"defense":100,"specialAttack":180,"specialDefense":100,"speed":115}},
+  {"id":10066,"name":"Mega Sableye","search":"mega sableye sableye-mega sableye","types":["Siniestro","Fantasma"],"stats":{"hp":50,"attack":85,"defense":125,"specialAttack":85,"specialDefense":115,"speed":20}},
+  {"id":10089,"name":"Mega Salamence","search":"mega salamence salamence-mega salamence","types":["Dragon","Volador"],"stats":{"hp":95,"attack":145,"defense":130,"specialAttack":120,"specialDefense":90,"speed":120}},
+  {"id":10065,"name":"Mega Sceptile","search":"mega sceptile sceptile-mega sceptile","types":["Planta","Dragon"],"stats":{"hp":70,"attack":110,"defense":75,"specialAttack":145,"specialDefense":85,"speed":145}},
+  {"id":10046,"name":"Mega Scizor","search":"mega scizor scizor-mega scizor","types":["Bicho","Acero"],"stats":{"hp":70,"attack":150,"defense":140,"specialAttack":65,"specialDefense":100,"speed":75}},
+  {"id":10070,"name":"Mega Sharpedo","search":"mega sharpedo sharpedo-mega sharpedo","types":["Agua","Siniestro"],"stats":{"hp":70,"attack":140,"defense":70,"specialAttack":110,"specialDefense":65,"speed":105}},
+  {"id":10071,"name":"Mega Slowbro","search":"mega slowbro slowbro-mega slowbro","types":["Agua","Psiquico"],"stats":{"hp":95,"attack":75,"defense":180,"specialAttack":130,"specialDefense":80,"speed":30}},
+  {"id":10072,"name":"Mega Steelix","search":"mega steelix steelix-mega steelix","types":["Acero","Tierra"],"stats":{"hp":75,"attack":125,"defense":230,"specialAttack":55,"specialDefense":95,"speed":30}},
+  {"id":10064,"name":"Mega Swampert","search":"mega swampert swampert-mega swampert","types":["Agua","Tierra"],"stats":{"hp":100,"attack":150,"defense":110,"specialAttack":95,"specialDefense":110,"speed":70}},
+  {"id":10049,"name":"Mega Tyranitar","search":"mega tyranitar tyranitar-mega tyranitar","types":["Roca","Siniestro"],"stats":{"hp":100,"attack":164,"defense":150,"specialAttack":95,"specialDefense":120,"speed":71}},
+  {"id":10033,"name":"Mega Venusaur","search":"mega venusaur venusaur-mega venusaur","types":["Planta","Veneno"],"stats":{"hp":80,"attack":100,"defense":123,"specialAttack":122,"specialDefense":120,"speed":80}},
+];
+
+export const pokedexEntries: PokedexEntry[] = [
+  ...standardPokedexEntries,
+  ...megaPokedexEntries,
 ];
