@@ -51,10 +51,10 @@ dotnet build .\tools\save-reader\save-reader.csproj -c Release
 Arranca la app:
 
 ```powershell
-npm run dev -- --hostname 127.0.0.1 --port 3000
+npm run dev
 ```
 
-Abre `http://127.0.0.1:3000`.
+Abre `http://127.0.0.1:3420`.
 
 ### Configurar el save
 
@@ -100,7 +100,7 @@ npm install
 npm run dev
 ```
 
-Abre `http://127.0.0.1:3000`.
+Abre `http://127.0.0.1:3420`.
 
 Comandos utiles:
 
