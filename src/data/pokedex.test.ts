@@ -3,11 +3,18 @@ import { describe, expect, it } from "vitest";
 import { pokedexEntries } from "@/data/pokedex";
 
 describe("pokedexEntries", () => {
-  it("includes official Mega Evolutions for opponent lookup", () => {
+  it("includes every Pokemon Anil generation and custom species", () => {
+    expect(pokedexEntries.length).toBeGreaterThanOrEqual(1_500);
+    expect(pokedexEntries.map((entry) => entry.name)).toContain("Pecharunt");
+    expect(pokedexEntries.map((entry) => entry.name)).toContain("Royaleon");
+    expect(pokedexEntries.map((entry) => entry.name)).toContain("Cefireon");
+  });
+
+  it("includes Pokemon Anil Mega Evolutions for opponent lookup", () => {
     const megaEntries = pokedexEntries.filter((entry) => entry.name.startsWith("Mega "));
 
-    expect(megaEntries).toHaveLength(48);
-    expect(megaEntries.map((entry) => entry.name)).toContain("Mega Venusaur");
+    expect(megaEntries.length).toBeGreaterThanOrEqual(48);
+    expect(megaEntries.map((entry) => entry.name)).toContain("Mega Venusaur X");
     expect(megaEntries.map((entry) => entry.name)).toContain("Mega Charizard X");
     expect(megaEntries.map((entry) => entry.name)).toContain("Mega Charizard Y");
   });

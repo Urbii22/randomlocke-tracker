@@ -1,6 +1,6 @@
 # Randomlocke Tracker
 
-Tracker local para una randomlocke de Pokemon Y. Guarda el estado en `localStorage`, permite mantener equipo, caja, rutas, muertos, objetos y notas manuales, y puede sincronizar equipo/caja desde el archivo de guardado `main` del emulador.
+Tracker local para randomlockes de Pokemon Y, Anil, Opalo, Z y Prolocke. Guarda el estado en `localStorage`, permite mantener equipo, caja, rutas, muertos, objetos y notas manuales, y puede sincronizar equipo/caja desde el guardado del juego.
 
 ## Guia de instalacion
 
@@ -72,7 +72,51 @@ Ejemplo de archivo:
 D:\Citra 1920\user\sdmc\Nintendo 3DS\00000000000000000000000000000000\00000000000000000000000000000000\title\00040000\00055e00\data\00000001\main
 ```
 
-La app acepta ambas. Si pegas la carpeta, la API usa automaticamente el archivo `main` que hay dentro.
+La app acepta ambas. Si pegas una carpeta, la API busca automáticamente `main`, `SaveData.bin` o la `Partida N.rxdata` más reciente.
+
+Para Pokemon Anil, configura:
+
+```text
+Save: C:\Users\Diego\AppData\Roaming\Pokemon Anil\Partida 1.rxdata
+Juego: D:\POKEMON_ANIL\Pokemon Anil
+```
+
+La app incluye pestañas independientes para Anil (A), Opalo (B), Z (C) y Prolocke (D). Prolocke está preparado para Luminescent Platinum (mod basado en Pokemon Diamante Brillante) y usa por defecto la carpeta de guardado de Ryujinx:
+
+```text
+Prolocke - Save: C:\Users\Diego\AppData\Roaming\Ryujinx\bis\user\save\0000000000000001\0
+```
+
+Si configuras una carpeta de Ryujinx, la app resuelve automáticamente el archivo `SaveData.bin` que contiene.
+
+Prolocke usa el parser de PKLumiHEx 0.4.3.1 incluido en `tools/save-reader/vendor/PKHeX.Core.dll`. Detecta los guardados de Luminescent Platinum, lee el equipo, las cajas, la bolsa y el progreso, y trabaja sobre una copia temporal para no modificar `SaveData.bin`. El ensamblado procede del proyecto [PKLumiHEx](https://github.com/TalonSabre/PKLumiHex/releases/tag/0.4.3) y conserva su licencia GPL-3.0-or-later.
+
+Para Prolocke no hace falta rellenar la carpeta del juego: las tablas necesarias las aporta el parser.
+
+Las rutas predeterminadas de las otras partidas son:
+
+```text
+Opalo - Save: C:\Users\Diego\Saved Games\Pokemon Opalo\Game.rxdata
+Opalo - Juego: D:\OPALO V2.11\Pokemon Opalo V2.11
+Z - Save: C:\Users\Diego\Saved Games\Pokemon Z\Game.rxdata
+Z - Juego: D:\Pokemon Z V2.18
+```
+
+Tambien puedes indicar la carpeta de saves; se seleccionara la `Partida N.rxdata` modificada mas recientemente. La carpeta del juego permite resolver los nombres, tipos, habilidades, movimientos y objetos desde `PBS`.
+
+La Pokedex de busqueda y combate usa los datos de Anil en las partidas A/B/C y los datos propios de Luminescent Platinum en Prolocke. En Prolocke se aplican los tipos, stats base y habilidades de `LumiMons.json` de Team Luminescent, incluida la Pokédex personalizada del mod. Fuente: [luminescent.team/pokedex](https://luminescent.team/pokedex).
+
+Para regenerar los datos de Anil despues de actualizar el juego:
+
+```powershell
+npm run generate:anil-pokedex -- "D:\POKEMON_ANIL\Pokemon Anil"
+```
+
+Para regenerar la tabla de Luminescent desde una copia local de `LumiMons.json`:
+
+```powershell
+npm run generate:luminescent-pokedex -- "C:\ruta\a\LumiMons.json"
+```
 
 Pulsa `Actualizar desde save`. La app deberia leer el equipo, la caja y recalcular la vista de combate.
 
@@ -89,6 +133,12 @@ Prueba manual del lector:
 
 ```powershell
 .\tools\save-reader\bin\Release\net10.0\save-reader.exe --save "D:\...\data\00000001\main"
+
+# Prolocke / Luminescent Platinum
+.\tools\save-reader\bin\Release\net10.0\save-reader.exe --save "C:\Users\Diego\AppData\Roaming\Ryujinx\bis\user\save\0000000000000001\0\SaveData.bin"
+
+# Pokemon Anil
+.\tools\save-reader\bin\Release\net10.0\save-reader.exe --save "C:\Users\Diego\AppData\Roaming\Pokemon Anil\Partida 1.rxdata" --game-dir "D:\POKEMON_ANIL\Pokemon Anil"
 ```
 
 Debe devolver JSON por `stdout`.
@@ -156,7 +206,10 @@ La sincronizacion actualiza datos leidos del save:
 - habilidad
 - objeto equipado
 - stats actuales
+- naturaleza, EVs, IVs, experiencia, amistad, PS actuales, estado y genero
 - movimientos
+- `rawFields` con todos los campos disponibles del objeto `Pokemon` de Pokemon Anil (con sus nombres Ruby originales)
+- MTs con su número y el movimiento que enseñan (`moveKey`/`moveName`), usando el PBS del juego
 - `source`, `partySlot`, `box`, `slot`, `lastSeenInSaveAt`
 
 La sincronizacion preserva datos manuales:
@@ -184,9 +237,9 @@ Despues de fusionar, la app recalcula equipo/caja y muestra en Ajustes:
 ## Limitaciones conocidas
 
 - `PKHeX.Core` puede cambiar nombres de APIs entre versiones; si falla la compilacion, el ajuste deberia concentrarse en `tools/save-reader/Program.cs`.
-- Los tipos de Pokemon salen de la tabla normal de especie, no del randomizer. Esto encaja con la regla actual de la run.
-- Los movimientos se leen desde el save y sus datos estandar de Gen 1-6 se completan desde `tools/save-reader/MoveMetadata.cs`. Si una ROM randomiza tipo/potencia/categoria de movimientos, hara falta importar overrides del randomizer o leer la tabla modificada de la ROM.
-- La Pokedex de combate usa tipos y stats base estandar Gen 1-6 desde `src/data/pokedex.ts`; no refleja randomizacion de tipos/base stats si alguna run la activa.
+- En Pokemon Y, los tipos salen de la tabla normal de especie y los movimientos se completan con los datos estandar de Gen 1-6.
+- En Pokemon Anil, especies, formas, tipos, stats base y movimientos salen de los archivos `PBS` instalados. Hay que regenerar la Pokedex si una actualizacion del juego cambia esos archivos.
+- La Pokedex generada no refleja cambios temporales hechos solo en memoria durante una partida.
 
 ## Pendiente para v2
 

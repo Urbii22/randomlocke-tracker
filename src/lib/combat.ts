@@ -1,3 +1,4 @@
+import { getStandardMoveMetadata } from "@/lib/moves";
 import type { Pokemon, PokemonMove } from "@/types/randomlocke";
 
 export const pokemonTypes = [
@@ -90,8 +91,10 @@ const moveTypeByName: Record<string, PokemonType> = {
   "after you": "Normal",
   aeroblast: "Volador",
   "air cutter": "Volador",
+  "air slash": "Volador",
   "attack order": "Bicho",
   "blue flare": "Fuego",
+  bonemerang: "Tierra",
   "bolt strike": "Eléctrico",
   "bone rush": "Tierra",
   charm: "Hada",
@@ -101,17 +104,26 @@ const moveTypeByName: Record<string, PokemonType> = {
   "dragon tail": "Dragón",
   "drill run": "Tierra",
   "double kick": "Lucha",
+  dig: "Tierra",
+  earthquake: "Tierra",
   "echoed voice": "Normal",
+  eruption: "Fuego",
   extrasensory: "Psíquico",
   flash: "Normal",
   "flash cannon": "Acero",
   fling: "Siniestro",
   "freeze shock": "Hielo",
+  "high jump kick": "Lucha",
   "hyperspace hole": "Psíquico",
   "leaf storm": "Planta",
+  "iron head": "Acero",
+  magnitude: "Tierra",
+  megahorn: "Bicho",
   "meteor mash": "Acero",
   "ominous wind": "Fantasma",
   "petal blizzard": "Planta",
+  overheat: "Fuego",
+  "phantom force": "Fantasma",
   "power whip": "Planta",
   "power-up punch": "Lucha",
   "rapid spin": "Normal",
@@ -122,19 +134,28 @@ const moveTypeByName: Record<string, PokemonType> = {
   rototiller: "Tierra",
   "sand tomb": "Tierra",
   "seed bomb": "Planta",
+  "secret power": "Normal",
   "shadow sneak": "Fantasma",
   "sheer cold": "Hielo",
+  snarl: "Siniestro",
   "spacial rend": "Dragón",
   "steel wing": "Acero",
+  "sticky web": "Bicho",
+  "stone edge": "Roca",
   splash: "Normal",
   substitute: "Normal",
+  supersonic: "Normal",
+  surf: "Agua",
   "sweet scent": "Normal",
+  "tail glow": "Bicho",
   thunder: "Eléctrico",
   "thunder shock": "Eléctrico",
   "thousand waves": "Tierra",
+  "u-turn": "Bicho",
   "water gun": "Agua",
   "water pledge": "Agua",
   "will-o-wisp": "Fuego",
+  "zap cannon": pokemonTypes[4],
   "cola dragon": "Dragón",
   "cola dragón": "Dragón",
   avalancha: "Roca",
@@ -194,7 +215,8 @@ export function normalizePokemonType(type: string): PokemonType | undefined {
 }
 
 export function getMoveType(move: string): PokemonType | undefined {
-  return moveTypeByName[move.trim().toLowerCase()];
+  const metadataType = getStandardMoveMetadata(move)?.type;
+  return normalizePokemonType(metadataType ?? "") ?? moveTypeByName[move.trim().toLowerCase()];
 }
 
 export function getPokemonMoveType(move: PokemonMove): PokemonType | undefined {

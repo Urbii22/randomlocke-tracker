@@ -147,6 +147,21 @@ function PokemonDetail({ pokemon }: { pokemon: Pokemon }) {
         <DetailField label="Habilidad" value={pokemon.ability || "-"} />
         <DetailField label="Objeto" value={pokemon.item || "-"} />
         <DetailField label="Ruta" value={pokemon.routeCaught || "-"} />
+        {pokemon.nature ? <DetailField label="Naturaleza" value={pokemon.nature} /> : null}
+        {pokemon.gender ? <DetailField label="Genero" value={pokemon.gender} /> : null}
+        {pokemon.statusCondition ? <DetailField label="Estado alterado" value={pokemon.statusCondition} /> : null}
+        {pokemon.currentHp !== undefined ? (
+          <DetailField
+            label="PS actuales"
+            value={`${pokemon.currentHp}/${pokemon.stats?.hp ?? "?"}`}
+          />
+        ) : null}
+        {pokemon.experience !== undefined ? (
+          <DetailField label="Experiencia" value={pokemon.experience.toLocaleString("es-ES")} />
+        ) : null}
+        {pokemon.friendship !== undefined ? (
+          <DetailField label="Amistad" value={String(pokemon.friendship)} />
+        ) : null}
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[1fr_17rem]">
@@ -184,6 +199,13 @@ function PokemonDetail({ pokemon }: { pokemon: Pokemon }) {
         </div>
       </div>
 
+      {pokemon.evs || pokemon.ivs ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {pokemon.evs ? <TrainingStatBlock label="EVs" stats={pokemon.evs} max={252} /> : null}
+          {pokemon.ivs ? <TrainingStatBlock label="IVs" stats={pokemon.ivs} max={31} /> : null}
+        </div>
+      ) : null}
+
       {pokemon.lastSeenInSaveAt || pokemon.notes ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <DetailField
@@ -194,6 +216,30 @@ function PokemonDetail({ pokemon }: { pokemon: Pokemon }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function TrainingStatBlock({
+  label,
+  stats,
+  max,
+}: {
+  label: string;
+  stats: NonNullable<Pokemon["stats"]>;
+  max: number;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-black uppercase text-stone-500">{label}</p>
+      <div className="grid gap-1 rounded-md border border-stone-800 bg-stone-950 p-3">
+        <StatRow label="PS" value={stats.hp} max={max} />
+        <StatRow label="Atk" value={stats.attack} max={max} />
+        <StatRow label="Def" value={stats.defense} max={max} />
+        <StatRow label="At. Esp." value={stats.specialAttack} max={max} />
+        <StatRow label="Def. Esp." value={stats.specialDefense} max={max} />
+        <StatRow label="Vel" value={stats.speed} max={max} />
+      </div>
+    </div>
   );
 }
 
@@ -233,14 +279,14 @@ function MoveDetail({ move }: { move: PokemonMove }) {
   );
 }
 
-function StatRow({ label, value }: { label: string; value: number }) {
+function StatRow({ label, value, max = 200 }: { label: string; value: number; max?: number }) {
   return (
     <div className="grid grid-cols-[4.5rem_1fr_2.5rem] items-center gap-2 text-xs">
       <span className="font-black text-stone-400">{label}</span>
       <span className="h-2 overflow-hidden rounded-sm bg-stone-800">
         <span
           className="block h-full rounded-sm bg-amber-300"
-          style={{ width: `${Math.min(100, Math.max(4, (value / 200) * 100))}%` }}
+          style={{ width: `${Math.min(100, Math.max(4, (value / max) * 100))}%` }}
         />
       </span>
       <span className="text-right font-mono font-black tabular-nums text-stone-100">{value}</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import Image from "next/image";
 import {
   Activity,
   Boxes,
@@ -13,6 +14,7 @@ import {
   Gauge,
   Gem,
   Ghost,
+  GripVertical,
   HeartPulse,
   HardDrive,
   Leaf,
@@ -25,6 +27,7 @@ import {
   Plus,
   RotateCcw,
   RefreshCw,
+  Search,
   Settings,
   Shield,
   Skull,
@@ -34,10 +37,12 @@ import {
   Upload,
   Users,
   Wind,
+  X,
   Zap,
 } from "lucide-react";
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { pokedexEntries, type PokedexEntry } from "@/data/pokedex";
+import { luminescentPokedexEntries } from "@/data/luminescentPokedex";
 import { useLocalStorageGameState } from "@/hooks/useLocalStorageGameState";
 import {
   getDefensiveMultiplier,
@@ -53,6 +58,8 @@ import {
   calculateDashboardSummary,
   formatPokemonStatTotal,
   getPokemonStatTotal,
+  importShowdownTeam,
+  reorderActivePokemon,
   type InventorySortPreset,
   isNormalCaptureLimitReached,
   pokemonStatusLabels,
@@ -62,7 +69,9 @@ import {
   upsertPokemon,
 } from "@/lib/game";
 import { mergeSaveSnapshot, type SaveSnapshot, type SaveSyncReport } from "@/lib/saveSync";
+import { buildPokemonSpriteUrl } from "@/lib/pokemonSprite";
 import { serializeGameState } from "@/lib/storage";
+import { trackedGameIds, trackedGames, type TrackedGameId } from "@/lib/trackedGame";
 import type {
   Battle,
   InventoryCategory,
@@ -87,6 +96,9 @@ type View = "dashboard" | "combat" | "pokemon" | "routes" | "inventory" | "dead"
 type SaveSyncApiResponse =
   | { snapshot: SaveSnapshot }
   | { error: string };
+
+type SpriteGame = "anil" | "opalo" | "z" | "prolocke";
+const ActiveGameContext = createContext<SpriteGame>("anil");
 
 const navItems: { view: View; label: string; icon: typeof Gauge }[] = [
   { view: "dashboard", label: "Dashboard", icon: Gauge },
@@ -232,11 +244,16 @@ export function RandomlockeApp() {
   const [inventoryFilter, setInventoryFilter] = useState<InventoryCategory | "all">("all");
   const [inventorySort, setInventorySort] = useState<InventorySortPreset>("tm_first");
   const [importText, setImportText] = useState("");
+  const [showdownImportText, setShowdownImportText] = useState("");
+  const [showdownImportMessage, setShowdownImportMessage] = useState("");
+  const [showdownImportError, setShowdownImportError] = useState("");
   const [isSyncingSave, setIsSyncingSave] = useState(false);
   const [saveSyncError, setSaveSyncError] = useState("");
   const [saveSyncReport, setSaveSyncReport] = useState<SaveSyncReport | undefined>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const game = useLocalStorageGameState();
+  const activeGame = trackedGames[game.activeGame];
+  const activePokedexEntries = game.activeGame === "prolocke" ? luminescentPokedexEntries : pokedexEntries;
   const summary = useMemo(() => calculateDashboardSummary(game.state), [game.state]);
   const combatProfile = useMemo(
     () => getTeamCombatProfile(game.state.pokemon),
@@ -268,6 +285,10 @@ export function RandomlockeApp() {
     setEditing(undefined);
   }
 
+  function moveActivePokemon(draggedPokemonId: string, targetPokemonId: string) {
+    game.setState((state) => reorderActivePokemon(state, draggedPokemonId, targetPokemonId));
+  }
+
   function saveRoute(route: Route) {
     game.setState((state) => upsertRoute(state, route));
     setEditingRoute(undefined);
@@ -283,8 +304,14 @@ export function RandomlockeApp() {
   }
 
   function exportPokemonJsonFile() {
-    downloadJsonFile("randomlocke-pokemon.json", {
-      exportedAt: new Date().toISOString(),
+    const exportedAt = new Date().toISOString();
+    const fileTimestamp = exportedAt
+      .replace("T", "_")
+      .replaceAll(":", "-")
+      .replace(".", "-");
+
+    downloadJsonFile(`randomlocke-pokemon-${fileTimestamp}.json`, {
+      exportedAt,
       count: game.state.pokemon.length,
       pokemon: game.state.pokemon,
     });
@@ -317,6 +344,23 @@ export function RandomlockeApp() {
     game.importJson(text);
   }
 
+  function importTeamFromShowdownText() {
+    const result = importShowdownTeam(game.state, showdownImportText, undefined, activePokedexEntries);
+
+    if (result.imported.length === 0) {
+      setShowdownImportError(result.warnings[0] ?? "No se pudo importar el equipo.");
+      setShowdownImportMessage("");
+      return;
+    }
+
+    game.setState(result.state);
+    setShowdownImportText("");
+    setShowdownImportError("");
+    setShowdownImportMessage(
+      `Equipo cargado: ${result.imported.length}/6 activos.${result.warnings.length ? ` ${result.warnings.join(" ")}` : ""}`,
+    );
+  }
+
   function resetGame() {
     game.reset();
     setEditing(undefined);
@@ -335,6 +379,28 @@ export function RandomlockeApp() {
     }));
   }
 
+  function switchGame(nextGame: TrackedGameId) {
+    game.selectGame(nextGame);
+    setEditing(undefined);
+    setEditingRoute(undefined);
+    setEditingInventoryItem(undefined);
+    setSaveSyncReport(undefined);
+    setSaveSyncError("");
+    setShowdownImportError("");
+    setShowdownImportMessage("");
+  }
+
+  function updateGameDirectory(gameDirectory: string) {
+    game.setState((state) => ({
+      ...state,
+      settings: {
+        ...state.settings,
+        gameDirectory,
+      },
+      updatedAt: new Date().toISOString(),
+    }));
+  }
+
   async function syncFromSave() {
     setIsSyncingSave(true);
     setSaveSyncError("");
@@ -343,7 +409,10 @@ export function RandomlockeApp() {
       const response = await fetch("/api/save/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ savePath: game.state.settings.saveFilePath }),
+        body: JSON.stringify({
+          savePath: game.state.settings.saveFilePath,
+          gameDirectory: game.state.settings.gameDirectory,
+        }),
       });
       const payload = (await response.json()) as SaveSyncApiResponse;
 
@@ -363,17 +432,41 @@ export function RandomlockeApp() {
   }
 
   return (
-    <div className="min-h-dvh bg-stone-950 text-stone-100">
+    <ActiveGameContext.Provider value={game.activeGame}>
+      <div className="min-h-dvh bg-stone-950 text-stone-100">
       <div className="mx-auto grid max-w-[1600px] gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="border-b border-stone-800 bg-stone-950 px-4 py-4 lg:sticky lg:top-0 lg:min-h-dvh lg:border-b-0 lg:border-r lg:px-5 lg:py-6">
           <div className="rounded-md border border-amber-400/30 bg-stone-900 p-4">
-            <p className="font-mono text-xs font-bold uppercase text-amber-300">Kalos field file</p>
+            <p className="font-mono text-xs font-bold uppercase text-amber-300">{activeGame.label} · Locke {activeGame.slot}</p>
             <h1 className="mt-3 text-3xl font-black leading-8 text-balance text-stone-50">
               Randomlocke Tracker
             </h1>
-            <p className="mt-3 text-sm text-pretty text-stone-400">
-              1 vida, 2 capturas por zona, mote obligatorio y cero legendarios.
-            </p>
+            <p className="mt-3 text-sm text-pretty text-stone-400">1 vida, 2 capturas por zona, mote obligatorio y cero legendarios.</p>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2" role="group" aria-label="Juego activo">
+            {trackedGameIds.map((gameId) => {
+              const option = trackedGames[gameId];
+              const selected = game.activeGame === gameId;
+              return (
+                <button
+                  key={gameId}
+                  type="button"
+                  onClick={() => switchGame(gameId)}
+                  aria-pressed={selected}
+                  aria-label={`${option.slot} · ${option.label}`}
+                  title={option.label}
+                  className={cn(
+                    "min-h-10 min-w-0 rounded-md border px-2 py-2 text-xs font-black transition-colors",
+                    selected
+                      ? "border-amber-300 bg-amber-300 text-stone-950"
+                      : "border-stone-700 bg-stone-900 text-stone-300 hover:border-stone-500 hover:text-stone-50",
+                  )}
+                >
+                  <span className="block truncate">{option.slot} · {option.tabLabel}</span>
+                </button>
+              );
+            })}
           </div>
 
           <nav className="mt-4 grid gap-2" aria-label="Pantallas">
@@ -429,8 +522,19 @@ export function RandomlockeApp() {
             <>
               <CombatHub
                 profile={combatProfile}
+                pokedexEntries={activePokedexEntries}
                 onSyncFromSave={() => void syncFromSave()}
                 isSyncingSave={isSyncingSave}
+                showdownImportText={showdownImportText}
+                showdownImportMessage={showdownImportMessage}
+                showdownImportError={showdownImportError}
+                onShowdownImportTextChange={(text) => {
+                  setShowdownImportText(text);
+                  setShowdownImportError("");
+                  setShowdownImportMessage("");
+                }}
+                onImportShowdownTeam={importTeamFromShowdownText}
+                onReorderActivePokemon={moveActivePokemon}
                 onEditPokemon={(pokemon) => {
                   setEditing(pokemon);
                   setIsPokemonPanelOpen(true);
@@ -548,6 +652,8 @@ export function RandomlockeApp() {
               stateJson={serializeGameState(game.state)}
               saveFilePath={game.state.settings.saveFilePath}
               onSaveFilePathChange={updateSaveFilePath}
+              gameDirectory={game.state.settings.gameDirectory}
+              onGameDirectoryChange={updateGameDirectory}
               onSyncFromSave={() => void syncFromSave()}
               isSyncingSave={isSyncingSave}
               saveSyncError={saveSyncError}
@@ -557,6 +663,7 @@ export function RandomlockeApp() {
         </main>
       </div>
     </div>
+    </ActiveGameContext.Provider>
   );
 }
 
@@ -580,13 +687,27 @@ function SideStat({ label, value }: { label: string; value: string | number }) {
 
 function CombatHub({
   profile,
+  pokedexEntries,
   onSyncFromSave,
   isSyncingSave,
+  showdownImportText,
+  showdownImportMessage,
+  showdownImportError,
+  onShowdownImportTextChange,
+  onImportShowdownTeam,
+  onReorderActivePokemon,
   onEditPokemon,
 }: {
   profile: ReturnType<typeof getTeamCombatProfile>;
+  pokedexEntries: PokedexEntry[];
   onSyncFromSave: () => void;
   isSyncingSave: boolean;
+  showdownImportText: string;
+  showdownImportMessage: string;
+  showdownImportError: string;
+  onShowdownImportTextChange: (text: string) => void;
+  onImportShowdownTeam: () => void;
+  onReorderActivePokemon: (draggedPokemonId: string, targetPokemonId: string) => void;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
   const [targetMode, setTargetMode] = useState<"single" | "double">("single");
@@ -594,14 +715,15 @@ function CombatHub({
   const [targetTypeSlots, setTargetTypeSlots] = useState<PokemonType[][]>([[], []]);
   const [pokedexQueries, setPokedexQueries] = useState(["", ""]);
   const [selectedOpponents, setSelectedOpponents] = useState<Array<PokedexEntry | undefined>>([undefined, undefined]);
+  const [rivalTeam, setRivalTeam] = useState<PokedexEntry[]>([]);
   const [isCompactCombat, setIsCompactCombat] = useState(false);
   const targetCount = targetMode === "double" ? 2 : 1;
   const targetTypeGroups = targetTypeSlots.slice(0, targetCount).filter((types) => types.length > 0);
   const activeTargetTypes = targetTypeSlots[activeTargetIndex] ?? [];
   const hasTargets = targetTypeGroups.length > 0;
   const pokedexMatches = useMemo(
-    () => pokedexQueries.map((query) => getPokedexMatches(query)),
-    [pokedexQueries],
+    () => pokedexQueries.map((query) => getPokedexMatches(query, pokedexEntries)),
+    [pokedexEntries, pokedexQueries],
   );
   const counterMoves = hasTargets
     ? profile.members.flatMap((member) =>
@@ -641,6 +763,16 @@ function CombatHub({
     setTargetTypeSlots((current) =>
       current.map((types, index) => (index === activeTargetIndex ? toggleTargetType(types, type) : types)),
     );
+  };
+  const addOpponentToRivalTeam = (entry: PokedexEntry) => {
+    setRivalTeam((current) =>
+      current.some((opponent) => opponent.id === entry.id) || current.length >= 6
+        ? current
+        : [...current, entry],
+    );
+  };
+  const removeOpponentFromRivalTeam = (id: number) => {
+    setRivalTeam((current) => current.filter((entry) => entry.id !== id));
   };
 
   return (
@@ -682,6 +814,22 @@ function CombatHub({
             </span>
           </div>
         </div>
+
+        <ShowdownTeamImporter
+          value={showdownImportText}
+          message={showdownImportMessage}
+          error={showdownImportError}
+          onChange={onShowdownImportTextChange}
+          onImport={onImportShowdownTeam}
+        />
+
+        <RivalTeamPanel
+          entries={rivalTeam}
+          compact={isCompactCombat}
+          onSelect={(entry) => selectTargetOpponent(activeTargetIndex, entry)}
+          onRemove={removeOpponentFromRivalTeam}
+          onClear={() => setRivalTeam([])}
+        />
 
         <div className={cn("rounded-md border border-stone-800 bg-stone-950", isCompactCombat ? "mt-2 p-2" : "mt-3 p-2.5")}>
           <div className="flex items-center justify-between gap-3">
@@ -729,12 +877,17 @@ function CombatHub({
               matches={pokedexMatches[0] ?? []}
               selectedOpponent={selectedOpponents[0]}
               compact={isCompactCombat}
+              isSavedOpponent={Boolean(selectedOpponents[0] && rivalTeam.some((entry) => entry.id === selectedOpponents[0]?.id))}
+              isRivalTeamFull={rivalTeam.length >= 6}
               onActivate={() => setActiveTargetIndex(0)}
               onQueryChange={(query) => {
                 setTargetQuery(0, query);
               }}
               onSelect={(entry) => {
                 selectTargetOpponent(0, entry);
+              }}
+              onSaveSelected={() => {
+                if (selectedOpponents[0]) addOpponentToRivalTeam(selectedOpponents[0]);
               }}
             />
             {targetMode === "double" ? (
@@ -745,12 +898,17 @@ function CombatHub({
                 matches={pokedexMatches[1] ?? []}
                 selectedOpponent={selectedOpponents[1]}
                 compact={isCompactCombat}
+                isSavedOpponent={Boolean(selectedOpponents[1] && rivalTeam.some((entry) => entry.id === selectedOpponents[1]?.id))}
+                isRivalTeamFull={rivalTeam.length >= 6}
                 onActivate={() => setActiveTargetIndex(1)}
                 onQueryChange={(query) => {
                   setTargetQuery(1, query);
                 }}
                 onSelect={(entry) => {
                   selectTargetOpponent(1, entry);
+                }}
+                onSaveSelected={() => {
+                  if (selectedOpponents[1]) addOpponentToRivalTeam(selectedOpponents[1]);
                 }}
               />
             ) : null}
@@ -816,6 +974,7 @@ function CombatHub({
             members={profile.members}
             targetTypeGroups={targetTypeGroups}
             compact={isCompactCombat}
+            onReorderActivePokemon={onReorderActivePokemon}
             onEditPokemon={onEditPokemon}
           />
         )}
@@ -826,6 +985,54 @@ function CombatHub({
   );
 }
 
+function ShowdownTeamImporter({
+  value,
+  message,
+  error,
+  onChange,
+  onImport,
+}: {
+  value: string;
+  message: string;
+  error: string;
+  onChange: (value: string) => void;
+  onImport: () => void;
+}) {
+  const canImport = value.trim().length > 0;
+
+  return (
+    <div className="mt-3 rounded-md border border-stone-800 bg-stone-950 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-xs font-black uppercase text-stone-300">Importar equipo Showdown</h3>
+          <p className="mt-1 text-xs font-semibold text-stone-500">
+            Pega el equipo y se cargara como los 6 activos de combate.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="secondary-button min-h-8 px-2 py-1 text-xs"
+          onClick={onImport}
+          disabled={!canImport}
+          title="Importar equipo Showdown"
+        >
+          <Upload size={14} aria-hidden="true" />
+          Importar
+        </button>
+      </div>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="GLADIATOR (Aegislash) @ Focus Sash&#10;Ability: Clear Body&#10;Level: 80&#10;- Sticky Web"
+        className="mt-3 min-h-36 w-full resize-y rounded-sm border border-stone-700 bg-stone-950 px-3 py-2 font-mono text-xs leading-5 text-stone-100 outline-none placeholder:text-stone-600 focus:border-amber-300"
+        aria-label="Equipo en formato Showdown"
+      />
+      {message ? <p className="mt-2 text-xs font-bold text-emerald-300">{message}</p> : null}
+      {error ? <p className="mt-2 text-xs font-bold text-rose-300">{error}</p> : null}
+      </div>
+  );
+}
+
 function OpponentSearchPanel({
   label = "Rival 1",
   active = true,
@@ -833,9 +1040,12 @@ function OpponentSearchPanel({
   matches,
   selectedOpponent,
   compact,
+  isSavedOpponent,
+  isRivalTeamFull,
   onActivate,
   onQueryChange,
   onSelect,
+  onSaveSelected,
 }: {
   label?: string;
   active?: boolean;
@@ -843,9 +1053,12 @@ function OpponentSearchPanel({
   matches: PokedexEntry[];
   selectedOpponent?: PokedexEntry;
   compact: boolean;
+  isSavedOpponent: boolean;
+  isRivalTeamFull: boolean;
   onActivate?: () => void;
   onQueryChange: (query: string) => void;
   onSelect: (entry: PokedexEntry) => void;
+  onSaveSelected: () => void;
 }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -884,8 +1097,9 @@ function OpponentSearchPanel({
                   onSelect(entry);
                   searchInputRef.current?.focus();
                 }}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-sm border border-stone-800 bg-stone-950 px-2 py-1 text-left hover:border-amber-200"
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-sm border border-stone-800 bg-stone-950 px-2 py-1 text-left hover:border-amber-200"
               >
+                <PokemonSprite spriteKey={entry.spriteKey} name={entry.name} size={32} />
                 <span className="truncate text-xs font-black text-stone-100">{entry.name}</span>
                 <span className="flex gap-1">
                   {entry.types.map((type) => (
@@ -900,8 +1114,102 @@ function OpponentSearchPanel({
         </div>
       ) : null}
 
-      {selectedOpponent ? <OpponentSummary entry={selectedOpponent} compact={compact} /> : null}
+      {selectedOpponent ? (
+        <>
+          <button
+            type="button"
+            onClick={onSaveSelected}
+            disabled={isSavedOpponent || isRivalTeamFull}
+            className="secondary-button min-h-8 w-fit px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <Plus size={14} aria-hidden="true" />
+            {isSavedOpponent ? "En equipo rival" : isRivalTeamFull ? "Equipo completo" : "Guardar en equipo rival"}
+          </button>
+          <OpponentSummary entry={selectedOpponent} compact={compact} />
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function RivalTeamPanel({
+  entries,
+  compact,
+  onSelect,
+  onRemove,
+  onClear,
+}: {
+  entries: PokedexEntry[];
+  compact: boolean;
+  onSelect: (entry: PokedexEntry) => void;
+  onRemove: (id: number) => void;
+  onClear: () => void;
+}) {
+  return (
+    <section className={cn("mt-3 rounded-md border border-amber-300/30 bg-amber-300/[0.035]", compact ? "p-2" : "p-3")}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <Users size={15} aria-hidden="true" className="text-amber-200" />
+            <h3 className="text-xs font-black uppercase text-amber-100">Equipo rival temporal</h3>
+          </div>
+          <p className="mt-1 text-xs font-semibold text-stone-500">
+            Guarda los Pokémon del entrenador para consultarlos y analizar todo el equipo sin volver a buscarlos.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-sm border border-amber-300/30 bg-stone-950 px-2 py-1 font-mono text-xs font-black tabular-nums text-amber-100">
+            {entries.length}/6
+          </span>
+          <button
+            type="button"
+            onClick={onClear}
+            disabled={entries.length === 0}
+            className="rounded-sm border border-stone-700 bg-stone-950 px-2 py-1 text-[0.65rem] font-black uppercase text-stone-400 hover:border-amber-200 hover:text-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Vaciar
+          </button>
+        </div>
+      </div>
+
+      {entries.length === 0 ? (
+        <p className="mt-3 rounded-sm border border-dashed border-stone-700 bg-stone-950/70 px-3 py-2 text-xs font-semibold text-stone-500">
+          Busca un Pokémon abajo y usa “Guardar en equipo rival”. Esta lista se mantiene solo durante esta sesión de combate.
+        </p>
+      ) : (
+        <div className={cn("mt-3 grid", compact ? "gap-1.5 sm:grid-cols-2 xl:grid-cols-3" : "gap-2 sm:grid-cols-2 xl:grid-cols-3")}>
+          {entries.map((entry) => (
+            <article key={entry.id} className="flex min-w-0 items-center gap-2 rounded-sm border border-stone-700 bg-stone-950 p-2">
+              <button
+                type="button"
+                onClick={() => onSelect(entry)}
+                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                title={`Consultar ${entry.name}`}
+              >
+                <PokemonSprite spriteKey={entry.spriteKey} name={entry.name} size={compact ? 28 : 34} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-black text-stone-100">{entry.name}</span>
+                  <span className="mt-1 flex flex-wrap gap-1">
+                    {entry.types.map((type) => (
+                      <TypeBadge key={`${entry.id}-${type}`} type={type} compact />
+                    ))}
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemove(entry.id)}
+                className="rounded-sm border border-stone-700 p-1 text-stone-500 hover:border-rose-300/70 hover:text-rose-200"
+                title={`Quitar ${entry.name} del equipo rival`}
+                aria-label={`Quitar ${entry.name} del equipo rival`}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -919,9 +1227,19 @@ function OpponentSummary({ entry, compact }: { entry: PokedexEntry; compact: boo
     >
       <div className={cn("grid rounded-sm border border-stone-800 bg-stone-950", compact ? "gap-2 p-2" : "gap-3 p-3")}>
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <p className={cn("font-black text-stone-50", compact ? "text-lg leading-5" : "text-xl leading-6")}>{entry.name}</p>
-            <p className="font-mono text-xs font-bold text-stone-500">#{entry.id}</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <PokemonSprite
+              spriteKey={entry.spriteKey}
+              name={entry.name}
+              kind="front"
+              size={compact ? 64 : 80}
+              className="bg-stone-900"
+            />
+            <div className="min-w-0">
+              <p className={cn("font-black text-stone-50", compact ? "text-lg leading-5" : "text-xl leading-6")}>{entry.name}</p>
+              <p className="font-mono text-xs font-bold text-stone-500">#{entry.id}</p>
+              {entry.ability ? <p className="mt-1 text-xs font-semibold text-amber-200">Habilidad: {entry.ability}</p> : null}
+            </div>
           </div>
           <div className={cn("flex flex-wrap", compact ? "gap-1" : "gap-1.5")}>
             {entry.types.map((type) => (
@@ -1091,14 +1409,14 @@ function getTargetDefensiveProfile(types: string[]) {
   };
 }
 
-function getPokedexMatches(query: string): PokedexEntry[] {
+function getPokedexMatches(query: string, entries: PokedexEntry[] = pokedexEntries): PokedexEntry[] {
   const normalized = normalizeSearchText(query);
 
   if (normalized.length < 2) {
     return [];
   }
 
-  return pokedexEntries
+  return entries
     .filter((entry) => normalizeSearchText(entry.search).includes(normalized))
     .slice(0, 8);
 }
@@ -1180,16 +1498,30 @@ function CombatRosterTable({
   members,
   targetTypeGroups,
   compact,
+  onReorderActivePokemon,
   onEditPokemon,
 }: {
   members: ReturnType<typeof getTeamCombatProfile>["members"];
   targetTypeGroups: PokemonType[][];
   compact: boolean;
+  onReorderActivePokemon: (draggedPokemonId: string, targetPokemonId: string) => void;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
+  const [draggedPokemonId, setDraggedPokemonId] = useState<string | undefined>();
+  const [dragOverPokemonId, setDragOverPokemonId] = useState<string | undefined>();
   const rosterColumns = compact
-    ? "xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.95fr_1.35fr_auto]"
-    : "xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto]";
+    ? "xl:grid-cols-[1.25fr_0.78fr_0.55fr_1.95fr_1.35fr_auto]"
+    : "xl:grid-cols-[1.25fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto]";
+  const handleDrop = (event: DragEvent<HTMLElement>, targetPokemonId: string) => {
+    event.preventDefault();
+
+    if (draggedPokemonId && draggedPokemonId !== targetPokemonId) {
+      onReorderActivePokemon(draggedPokemonId, targetPokemonId);
+    }
+
+    setDraggedPokemonId(undefined);
+    setDragOverPokemonId(undefined);
+  };
 
   return (
     <div className={cn("overflow-hidden rounded-md border border-stone-800 bg-stone-950", compact ? "mt-2" : "mt-3")}>
@@ -1213,6 +1545,26 @@ function CombatRosterTable({
             member={member}
             targetTypeGroups={targetTypeGroups}
             compact={compact}
+            isDragging={draggedPokemonId === member.pokemon.id}
+            isDragTarget={dragOverPokemonId === member.pokemon.id && draggedPokemonId !== member.pokemon.id}
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", member.pokemon.id);
+              setDraggedPokemonId(member.pokemon.id);
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+              setDragOverPokemonId(member.pokemon.id);
+            }}
+            onDragLeave={() => {
+              setDragOverPokemonId((current) => (current === member.pokemon.id ? undefined : current));
+            }}
+            onDrop={(event) => handleDrop(event, member.pokemon.id)}
+            onDragEnd={() => {
+              setDraggedPokemonId(undefined);
+              setDragOverPokemonId(undefined);
+            }}
             onEditPokemon={onEditPokemon}
           />
         ))}
@@ -1225,16 +1577,30 @@ function CombatRosterRow({
   member,
   targetTypeGroups,
   compact,
+  isDragging,
+  isDragTarget,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
   onEditPokemon,
 }: {
   member: ReturnType<typeof getTeamCombatProfile>["members"][number];
   targetTypeGroups: PokemonType[][];
   compact: boolean;
+  isDragging: boolean;
+  isDragTarget: boolean;
+  onDragStart: (event: DragEvent<HTMLElement>) => void;
+  onDragOver: (event: DragEvent<HTMLElement>) => void;
+  onDragLeave: () => void;
+  onDrop: (event: DragEvent<HTMLElement>) => void;
+  onDragEnd: () => void;
   onEditPokemon: (pokemon: Pokemon) => void;
 }) {
   const rosterColumns = compact
-    ? "xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.95fr_1.35fr_auto]"
-    : "xl:grid-cols-[1.05fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto]";
+    ? "xl:grid-cols-[1.25fr_0.78fr_0.55fr_1.95fr_1.35fr_auto]"
+    : "xl:grid-cols-[1.25fr_0.78fr_0.55fr_1.8fr_1.35fr_1.05fr_auto]";
   const [expandedMoveIndex, setExpandedMoveIndex] = useState<number | undefined>();
   const expandedMove =
     expandedMoveIndex === undefined ? undefined : member.moveTypes[expandedMoveIndex];
@@ -1245,13 +1611,34 @@ function CombatRosterRow({
 
   return (
     <article
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
       className={cn(
-        "grid px-2.5 xl:items-center",
+        "grid cursor-grab px-2.5 transition active:cursor-grabbing xl:items-center",
         rosterColumns,
         compact ? "gap-1.5 py-1.5" : "gap-2 py-2.5",
+        isDragging ? "opacity-45" : "",
+        isDragTarget ? "bg-amber-300/[0.08] shadow-[inset_3px_0_0_rgba(252,211,77,0.8)]" : "",
       )}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 xl:block">
+      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-start gap-2 xl:grid-cols-[auto_auto_minmax(0,1fr)]">
+        <div
+          className="mt-0.5 flex h-8 w-6 shrink-0 items-center justify-center rounded-sm border border-stone-800 bg-stone-900 text-stone-500"
+          title="Arrastra para ordenar"
+          aria-hidden="true"
+        >
+          <GripVertical size={14} />
+        </div>
+        <PokemonSprite
+          spriteKey={getPokemonSpriteKey(member.pokemon)}
+          name={member.pokemon.species}
+          shiny={member.pokemon.shiny}
+          size={compact ? 36 : 44}
+        />
         <div className="min-w-0">
           <h3 className={cn("truncate font-black text-stone-50", compact ? "text-sm leading-4" : "text-base leading-5")}>{member.pokemon.nickname}</h3>
           <p className={cn("text-stone-400", compact ? "text-[0.68rem]" : "text-xs")}>
@@ -1720,6 +2107,60 @@ function normalizeSearchText(value: string): string {
     .toLowerCase();
 }
 
+function getPokemonSpriteKey(pokemon: Pokemon): string | undefined {
+  if (pokemon.spriteKey) return pokemon.spriteKey;
+
+  const species = normalizeSearchText(pokemon.species);
+  return pokedexEntries.find((entry) => normalizeSearchText(entry.name) === species)?.spriteKey;
+}
+
+function PokemonSprite({
+  spriteKey,
+  name,
+  kind = "icon",
+  shiny = false,
+  size = 40,
+  className,
+}: {
+  spriteKey?: string;
+  name: string;
+  kind?: "icon" | "front";
+  shiny?: boolean;
+  size?: number;
+  className?: string;
+}) {
+  const activeSpriteGame = useContext(ActiveGameContext);
+  const src = spriteKey ? buildPokemonSpriteUrl(spriteKey, kind, shiny, activeSpriteGame) : undefined;
+
+  return (
+    <span
+      className={cn(
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-sm border border-stone-800 bg-stone-950 font-mono text-xs font-black text-stone-700",
+        className,
+      )}
+      style={{ width: size, height: size }}
+      title={name}
+    >
+      ?
+      {src ? (
+        <Image
+          key={src}
+          src={src}
+          alt={`Sprite de ${name}`}
+          width={size}
+          height={size}
+          unoptimized
+          draggable={false}
+          className="absolute inset-0 h-full w-full object-contain [image-rendering:pixelated]"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
+      ) : null}
+    </span>
+  );
+}
+
 function RunHeader({
   nextGym,
   nextFriendBattle,
@@ -1811,9 +2252,17 @@ function RosterCard({ pokemon }: { pokemon: Pokemon }) {
   return (
     <article className="rounded-md border border-stone-800 bg-stone-950 p-3">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-lg font-black text-stone-50">{pokemon.nickname}</p>
-          <p className="text-sm text-stone-400">{pokemon.species} · Nv. {pokemon.level}</p>
+        <div className="flex min-w-0 items-center gap-3">
+          <PokemonSprite
+            spriteKey={getPokemonSpriteKey(pokemon)}
+            name={pokemon.species}
+            shiny={pokemon.shiny}
+            size={52}
+          />
+          <div className="min-w-0">
+            <p className="truncate text-lg font-black text-stone-50">{pokemon.nickname}</p>
+            <p className="truncate text-sm text-stone-400">{pokemon.species} · Nv. {pokemon.level}</p>
+          </div>
         </div>
         <span className="rounded-sm bg-amber-300 px-2 py-1 font-mono text-sm font-black tabular-nums text-stone-950" title="Total de stats del save">
           {formatPokemonStatTotal(pokemon)}
@@ -1858,13 +2307,26 @@ function PokemonTable({ pokemon, filter, onFilterChange, onExport, onAdd, onEdit
   onEdit: (pokemon: Pokemon) => void;
 }) {
   const [statsSort, setStatsSort] = useState<PokemonSortDirection | undefined>();
+  const [searchQuery, setSearchQuery] = useState("");
   const statuses = Object.keys(pokemonStatusLabels) as PokemonStatus[];
-  const sortedPokemon = useMemo(() => {
-    if (!statsSort) {
+  const searchedPokemon = useMemo(() => {
+    const query = normalizeSearchText(searchQuery);
+    if (!query) {
       return pokemon;
     }
 
-    return [...pokemon].sort((left, right) => {
+    return pokemon.filter((entry) => {
+      const species = normalizeSearchText(entry.species);
+      const nickname = normalizeSearchText(entry.nickname);
+      return species.includes(query) || nickname.includes(query);
+    });
+  }, [pokemon, searchQuery]);
+  const sortedPokemon = useMemo(() => {
+    if (!statsSort) {
+      return searchedPokemon;
+    }
+
+    return [...searchedPokemon].sort((left, right) => {
       const leftTotal = getPokemonStatTotal(left.stats);
       const rightTotal = getPokemonStatTotal(right.stats);
 
@@ -1878,7 +2340,7 @@ function PokemonTable({ pokemon, filter, onFilterChange, onExport, onAdd, onEdit
       const delta = statsSort === "asc" ? leftTotal - rightTotal : rightTotal - leftTotal;
       return delta || left.nickname.localeCompare(right.nickname, "es", { sensitivity: "base" });
     });
-  }, [pokemon, statsSort]);
+  }, [searchedPokemon, statsSort]);
   const statsSortLabel = statsSort === "asc" ? "Stats ↑" : statsSort === "desc" ? "Stats ↓" : "Stats";
 
   return (
@@ -1900,6 +2362,26 @@ function PokemonTable({ pokemon, filter, onFilterChange, onExport, onAdd, onEdit
           </select>
         </div>
       </div>
+      <label className="mt-4 flex max-w-md items-center gap-2 rounded-md border border-stone-700 bg-stone-950 px-3 py-2 text-sm font-semibold text-stone-100 focus-within:border-amber-300">
+        <Search size={16} aria-hidden="true" className="shrink-0 text-stone-500" />
+        <input
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Buscar por especie"
+          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-stone-600"
+          aria-label="Buscar Pokemon por especie"
+        />
+        {searchQuery ? (
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            className="text-xs font-black uppercase text-stone-500 hover:text-amber-200"
+            aria-label="Limpiar busqueda"
+          >
+            Limpiar
+          </button>
+        ) : null}
+      </label>
       <div className="mt-4 overflow-x-auto">
         <table className="data-table">
           <thead>
@@ -1924,7 +2406,20 @@ function PokemonTable({ pokemon, filter, onFilterChange, onExport, onAdd, onEdit
           <tbody>
             {sortedPokemon.map((entry) => (
               <tr key={entry.id}>
-                <td><button className="text-left" onClick={() => onEdit(entry)} type="button"><span className="block font-black text-stone-50">{entry.nickname}</span><span className="text-sm text-stone-400">{entry.species} · Nv. {entry.level}</span></button></td>
+                <td>
+                  <button className="flex items-center gap-2 text-left" onClick={() => onEdit(entry)} type="button">
+                    <PokemonSprite
+                      spriteKey={getPokemonSpriteKey(entry)}
+                      name={entry.species}
+                      shiny={entry.shiny}
+                      size={40}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate font-black text-stone-50">{entry.nickname}</span>
+                      <span className="block truncate text-sm text-stone-400">{entry.species} · Nv. {entry.level}</span>
+                    </span>
+                  </button>
+                </td>
                 <td><StatusBadge kind="pokemon" status={entry.status} /></td>
                 <td>{entry.types.join(", ") || "-"}</td>
                 <td>{entry.role || "-"}</td>
@@ -2165,6 +2660,8 @@ function SettingsPanel({
   stateJson,
   saveFilePath,
   onSaveFilePathChange,
+  gameDirectory,
+  onGameDirectoryChange,
   onSyncFromSave,
   isSyncingSave,
   saveSyncError,
@@ -2180,6 +2677,8 @@ function SettingsPanel({
   stateJson: string;
   saveFilePath: string;
   onSaveFilePathChange: (value: string) => void;
+  gameDirectory: string;
+  onGameDirectoryChange: (value: string) => void;
   onSyncFromSave: () => void;
   isSyncingSave: boolean;
   saveSyncError: string;
@@ -2217,7 +2716,17 @@ function SettingsPanel({
           <input
             value={saveFilePath}
             onChange={(event) => onSaveFilePathChange(event.target.value)}
-            placeholder="D:\\...\\title\\...\\data\\00000001\\main o D:\\saves\\partida.sav"
+            placeholder="C:\\Users\\...\\Pokemon Anil\\Partida 1.rxdata"
+            className="rounded-md border border-stone-700 bg-stone-900 px-3 py-2 font-mono text-sm text-stone-100 outline-none focus:border-amber-300"
+          />
+        </label>
+
+        <label className="grid gap-2 text-sm font-semibold text-stone-300">
+          Carpeta del juego (para nombres, tipos y movimientos)
+          <input
+            value={gameDirectory}
+            onChange={(event) => onGameDirectoryChange(event.target.value)}
+            placeholder="D:\\POKEMON_ANIL\\Pokemon Anil"
             className="rounded-md border border-stone-700 bg-stone-900 px-3 py-2 font-mono text-sm text-stone-100 outline-none focus:border-amber-300"
           />
         </label>

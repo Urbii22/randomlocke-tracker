@@ -54,12 +54,23 @@ export type Pokemon = {
   id: string;
   species: string;
   nickname: string;
+  spriteKey?: string;
+  shiny?: boolean;
   level: number;
   types: string[];
   ability: string;
   moves: PokemonMove[];
   item: string;
   stats?: PokemonStats;
+  nature?: string;
+  evs?: PokemonStats;
+  ivs?: PokemonStats;
+  experience?: number;
+  friendship?: number;
+  currentHp?: number;
+  statusCondition?: string;
+  gender?: string;
+  rawFields?: Record<string, unknown>;
   source?: PokemonSaveSource;
   partySlot?: number;
   box?: number;
@@ -97,6 +108,12 @@ export type Battle = {
 export type InventoryItem = {
   id: string;
   name: string;
+  saveItemKey?: string;
+  savePocketNumber?: number;
+  saveFlags?: string[];
+  saveItemName?: string;
+  saveMoveKey?: string;
+  saveMoveName?: string;
   category: InventoryCategory;
   quantity: number;
   location: string;
@@ -115,6 +132,7 @@ export type LevelCap = {
 
 export type GameSettings = {
   saveFilePath: string;
+  gameDirectory: string;
   lastSaveSyncAt?: string;
   lastSaveProgress?: SaveProgress;
 };

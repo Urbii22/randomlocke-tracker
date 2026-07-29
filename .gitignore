@@ -12,6 +12,10 @@
 
 # testing
 /coverage
+/.playwright-cli/
+
+# local agent artifacts
+/.codex/
 
 # next.js
 /.next/

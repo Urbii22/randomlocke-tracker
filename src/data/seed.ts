@@ -5,7 +5,8 @@ const updatedAt = "2026-06-21T00:00:00.000Z";
 export const seedGameState: GameState = {
   updatedAt,
   settings: {
-    saveFilePath: "",
+    saveFilePath: "C:\\Users\\Diego\\AppData\\Roaming\\Pokemon Anil\\Partida 1.rxdata",
+    gameDirectory: "D:\\POKEMON_ANIL\\Pokemon Anil",
   },
   levelCaps: [
     { gym: 1, leader: "Viola", cap: 14 },

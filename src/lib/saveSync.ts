@@ -19,20 +19,37 @@ export type SavePokemon = {
   slot?: number;
   species: string;
   nickname: string;
+  spriteKey?: string;
+  shiny?: boolean;
   level: number;
   types?: string[];
   ability: string;
   item: string | null;
   stats?: PokemonStats;
+  nature?: string;
+  evs?: PokemonStats;
+  ivs?: PokemonStats;
+  experience?: number;
+  friendship?: number;
+  currentHp?: number;
+  statusCondition?: string;
+  gender?: string;
+  rawFields?: Record<string, unknown>;
   moves: PokemonMove[];
 };
 
 export type SaveBagItem = {
   itemId?: number;
+  itemKey?: string;
   name: string;
   quantity: number;
   category: InventoryCategory;
   pocket: string;
+  pocketNumber?: number;
+  flags?: string[];
+  itemName?: string;
+  moveKey?: string;
+  moveName?: string;
 };
 
 export type SaveSnapshot = {
@@ -168,12 +185,23 @@ export function mergeSaveSnapshot(state: GameState, snapshot: SaveSnapshot): Sav
       id,
       species: savePokemon.species,
       nickname: savePokemon.nickname || savePokemon.species,
+      spriteKey: savePokemon.spriteKey ?? existing?.spriteKey,
+      shiny: savePokemon.shiny ?? existing?.shiny,
       level: savePokemon.level,
       types: savePokemon.types.length > 0 ? savePokemon.types : (existing?.types ?? []),
       ability: savePokemon.ability,
       moves: savePokemon.moves,
       item: savePokemon.item ?? "",
       stats: savePokemon.stats,
+      nature: savePokemon.nature ?? existing?.nature,
+      evs: savePokemon.evs ?? existing?.evs,
+      ivs: savePokemon.ivs ?? existing?.ivs,
+      experience: savePokemon.experience ?? existing?.experience,
+      friendship: savePokemon.friendship ?? existing?.friendship,
+      currentHp: savePokemon.currentHp ?? existing?.currentHp,
+      statusCondition: savePokemon.statusCondition ?? existing?.statusCondition,
+      gender: savePokemon.gender ?? existing?.gender,
+      rawFields: savePokemon.rawFields ?? existing?.rawFields,
       source: savePokemon.source,
       partySlot: savePokemon.source === "party" ? savePokemon.partySlot : undefined,
       box: savePokemon.source === "box" ? savePokemon.box : undefined,
@@ -324,7 +352,17 @@ function mergeSaveBag(
   let added = 0;
   let updated = 0;
 
-  const syncedInventory = bag.map((bagItem) => {
+  const uniqueBag = new Map<string, SaveBagItem>();
+  for (const bagItem of bag) {
+    const key = getInventoryBaseId(bagItem);
+    const previous = uniqueBag.get(key);
+    uniqueBag.set(
+      key,
+      previous ? { ...previous, quantity: previous.quantity + bagItem.quantity } : bagItem,
+    );
+  }
+
+  const syncedInventory = [...uniqueBag.values()].map((bagItem) => {
     const baseId = getInventoryBaseId(bagItem);
     const existing = existingById.get(baseId) ?? existingManualBagByName.get(normalizeKey(bagItem.name));
     const id = existing?.id ?? createUniqueInventoryId(baseId, usedIds);
@@ -340,6 +378,12 @@ function mergeSaveBag(
       ...(existing ?? createBagInventoryDefaults(id)),
       id: existing?.id ?? id,
       name: bagItem.name,
+      saveItemKey: bagItem.itemKey ?? existing?.saveItemKey,
+      savePocketNumber: bagItem.pocketNumber ?? existing?.savePocketNumber,
+      saveFlags: bagItem.flags ?? existing?.saveFlags,
+      saveItemName: bagItem.itemName ?? existing?.saveItemName,
+      saveMoveKey: bagItem.moveKey ?? existing?.saveMoveKey,
+      saveMoveName: bagItem.moveName ?? existing?.saveMoveName,
       category: bagItem.category,
       quantity: bagItem.quantity,
       location: bagItem.pocket ? `Save: ${bagItem.pocket}` : "Save",
@@ -349,12 +393,18 @@ function mergeSaveBag(
     } satisfies InventoryItem;
   });
 
-  const untouchedInventory = currentInventory.filter((item) => !syncedIds.has(item.id));
+  const untouchedInventory = currentInventory.filter(
+    (item) => !syncedIds.has(item.id) && !isStaleSaveInventoryItem(item),
+  );
   return {
     inventory: [...syncedInventory, ...untouchedInventory],
     added,
     updated,
   };
+}
+
+function isStaleSaveInventoryItem(item: InventoryItem): boolean {
+  return item.location.trim().toLowerCase().startsWith("save");
 }
 
 function createBagInventoryDefaults(id: string): InventoryItem {
@@ -442,6 +492,10 @@ function createStablePokemonId(pokemon: SavePokemon, usedIds: Set<string>): stri
 }
 
 function getInventoryBaseId(item: SaveBagItem): string {
+  if (item.itemKey?.trim()) {
+    return `bag-item-${item.itemKey.trim()}`;
+  }
+
   return item.itemId ? `bag-item-${item.itemId}` : `bag-${slugify(item.name)}`;
 }
 

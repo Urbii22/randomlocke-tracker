@@ -27,19 +27,29 @@ var tempPath = Path.Combine(
 try
 {
     File.Copy(options.SavePath, tempPath, overwrite: false);
-    var snapshot = SaveSnapshotReader.Read(tempPath);
+    var snapshot = PokemonAnilSaveReader.LooksLikeSave(tempPath)
+        ? ReadRubySave(tempPath, options.GameDirectory)
+        : LooksLikeLuminescentSave(tempPath)
+            ? ReadLuminescentSave(tempPath)
+            : SaveSnapshotReader.Read(tempPath);
     Console.WriteLine(JsonSerializer.Serialize(snapshot, JsonOptions.Value));
 }
+
 catch (Exception ex)
 {
+    var game = Path.GetExtension(options.SavePath).Equals(".rxdata", StringComparison.OrdinalIgnoreCase)
+        ? "Pokemon Anil"
+        : LooksLikeLuminescentSave(options.SavePath)
+            ? "Pokemon Luminescent Platinum"
+        : "Pokemon Y";
     var errorSnapshot = new SaveSnapshot(
         DateTimeOffset.UtcNow,
-        "Pokemon Y",
+        game,
         [],
         [],
         [],
         null,
-        [$"No se pudo leer el save: {ex.GetType().Name}"]
+        [$"No se pudo leer el save: {ex.GetType().Name}: {ex.Message}"]
     );
     Console.WriteLine(JsonSerializer.Serialize(errorSnapshot, JsonOptions.Value));
     Environment.ExitCode = 1;
@@ -57,17 +67,53 @@ finally
     }
 }
 
-internal sealed record SaveReaderOptions(string SavePath)
+static bool LooksLikeLuminescentSave(string path)
+{
+    var info = new FileInfo(path);
+    if (info.Length is not (0xEDC20 or 0xEF0A4))
+        return false;
+
+    using var stream = File.OpenRead(path);
+    Span<byte> header = stackalloc byte[sizeof(uint)];
+    return stream.Read(header) == header.Length &&
+           (BitConverter.ToUInt32(header) & 0xFFFF0000) == 0xFFFF0000;
+}
+
+static SaveSnapshot ReadLuminescentSave(string path)
+{
+    var save = SaveUtil.GetVariantSAV(path)
+        ?? throw new InvalidOperationException("PKLumiHeX no reconoció el guardado de Luminescent Platinum.");
+    return SaveSnapshotReader.ReadSaveFile(save, "Pokemon Luminescent Platinum");
+}
+
+static SaveSnapshot ReadRubySave(string savePath, string? gameDirectory)
+{
+    using var stream = File.OpenRead(savePath);
+    var firstValue = RubyMarshalReader.ReadFirst(stream);
+    var gameName = gameDirectory?.Contains("Pokemon Z", StringComparison.OrdinalIgnoreCase) == true
+        ? "Pokemon Z"
+        : "Pokemon Opalo";
+    return firstValue is RubyObject { ClassName: "PokeBattle_Trainer" }
+        ? PokemonOpaloSaveReader.Read(savePath, gameDirectory, gameName)
+        : PokemonAnilSaveReader.Read(savePath, gameDirectory);
+}
+
+internal sealed record SaveReaderOptions(string SavePath, string? GameDirectory)
 {
     public static SaveReaderOptions? Parse(string[] args)
     {
+        string? savePath = null;
+        string? gameDirectory = null;
+
         for (var i = 0; i < args.Length - 1; i++)
         {
             if (args[i] is "--save" or "-s")
-                return new SaveReaderOptions(args[i + 1]);
+                savePath = args[i + 1];
+            if (args[i] is "--game-dir" or "-g")
+                gameDirectory = args[i + 1];
         }
 
-        return null;
+        return string.IsNullOrWhiteSpace(savePath) ? null : new SaveReaderOptions(savePath, gameDirectory);
     }
 }
 
@@ -75,9 +121,15 @@ internal static class SaveSnapshotReader
 {
     public static SaveSnapshot Read(string copiedSavePath)
     {
-        var save = SaveUtil.GetSaveFile(copiedSavePath);
+        var save = SaveUtil.GetVariantSAV(copiedSavePath);
         if (save is null)
             throw new InvalidOperationException("PKHeX.Core did not recognize the save file.");
+
+        return ReadSaveFile(save, "Pokemon Y");
+    }
+
+    public static SaveSnapshot ReadSaveFile(SaveFile save, string game)
+    {
 
         var party = new List<SavePokemon>();
         var boxes = new List<SavePokemon>();
@@ -103,7 +155,7 @@ internal static class SaveSnapshotReader
             }
         }
 
-        return new SaveSnapshot(DateTimeOffset.UtcNow, "Pokemon Y", party, boxes, GetBag(save), GetProgress(save), []);
+        return new SaveSnapshot(DateTimeOffset.UtcNow, game, party, boxes, GetBag(save), GetProgress(save), []);
     }
 
     private static bool IsEmpty(PKM pokemon) => pokemon.Species == 0;
@@ -139,7 +191,9 @@ internal static class SaveSnapshotReader
                 stats[5],
                 stats[3]
             ),
-            GetMoves(pokemon, pokemon.Context)
+            GetMoves(pokemon, pokemon.Context),
+            null,
+            null
         );
     }
 
@@ -212,7 +266,7 @@ internal static class SaveSnapshotReader
         var itemNames = GameInfo.Strings.Item;
         var items = new List<SaveBagItem>();
 
-        foreach (var pouch in save.Inventory.Pouches)
+        foreach (var pouch in save.Inventory)
         {
             foreach (var item in pouch.Items)
             {
@@ -238,6 +292,21 @@ internal static class SaveSnapshotReader
 
     private static SaveProgress? GetProgress(SaveFile save)
     {
+        if (save is SAV8BS brilliantDiamond)
+        {
+            return new SaveProgress(
+                brilliantDiamond.MyStatus.BadgeCount,
+                new SaveLocation(
+                    brilliantDiamond.ZoneID,
+                    brilliantDiamond.Player.TownMapZone,
+                    brilliantDiamond.Player.TownMapX,
+                    brilliantDiamond.Player.TownMapY,
+                    brilliantDiamond.Player.TownMapZ,
+                    $"Mapa {brilliantDiamond.ZoneID}"
+                )
+            );
+        }
+
         if (save is not SAV6XY xy)
             return null;
 
@@ -245,7 +314,7 @@ internal static class SaveSnapshotReader
             CountSetBits(xy.Badges),
             new SaveLocation(
                 xy.Situation.M,
-                xy.Situation.R,
+                0,
                 xy.Situation.X,
                 xy.Situation.Y,
                 xy.Situation.Z,
@@ -353,7 +422,7 @@ internal sealed record SaveSnapshot(
 
 internal sealed record SaveProgress(
     int Badges,
-    SaveLocation Location
+    SaveLocation? Location
 );
 
 internal sealed record SaveLocation(
@@ -377,7 +446,18 @@ internal sealed record SavePokemon(
     string Ability,
     string? Item,
     SaveStats Stats,
-    IReadOnlyList<SaveMove> Moves
+    IReadOnlyList<SaveMove> Moves,
+    string? SpriteKey,
+    bool? Shiny,
+    string? Nature = null,
+    SaveStats? Evs = null,
+    SaveStats? Ivs = null,
+    int? Experience = null,
+    int? Friendship = null,
+    int? CurrentHp = null,
+    string? StatusCondition = null,
+    string? Gender = null,
+    IReadOnlyDictionary<string, object?>? RawFields = null
 );
 
 internal sealed record SaveStats(
@@ -402,7 +482,13 @@ internal sealed record SaveBagItem(
     string Name,
     int Quantity,
     string Category,
-    string Pocket
+    string Pocket,
+    string? ItemKey = null,
+    int? PocketNumber = null,
+    IReadOnlyList<string>? Flags = null,
+    string? ItemName = null,
+    string? MoveKey = null,
+    string? MoveName = null
 );
 
 internal static class JsonOptions

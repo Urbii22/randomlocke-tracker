@@ -4,10 +4,13 @@ import {
   createMoveDraft,
   createInventoryItemDraft,
   createInitialGameState,
+  createPokemonDraft,
   createRouteDraft,
   getPokemonStatTotal,
   getNextBattle,
+  importShowdownTeam,
   isNormalCaptureLimitReached,
+  reorderActivePokemon,
   sortInventoryItems,
   upsertRoute,
   upsertInventoryItem,
@@ -114,6 +117,28 @@ describe("Randomlocke game state", () => {
     expect(errors).toContain("Un Pokémon no puede tener más de 4 movimientos.");
   });
 
+  it("creates move drafts with standard battle metadata", () => {
+    expect(createMoveDraft("Surf")).toMatchObject({
+      name: "Surf",
+      type: "Agua",
+      category: "special",
+      power: 90,
+      accuracy: 100,
+    });
+    expect(createMoveDraft("Sticky Web")).toMatchObject({
+      type: "Bicho",
+      category: "status",
+      power: null,
+      accuracy: null,
+    });
+    expect(createMoveDraft("Zap Cannon")).toMatchObject({
+      type: "Eléctrico",
+      category: "special",
+      power: 120,
+      accuracy: 50,
+    });
+  });
+
   it("validates and creates editable route drafts", () => {
     expect(createRouteDraft()).toMatchObject({
       name: "",
@@ -190,6 +215,228 @@ describe("Randomlocke game state", () => {
     expect(next.inventory).toHaveLength(1);
     expect(next.inventory[0]).toMatchObject({ id: "item-tm01", category: "tm" });
     expect(next.updatedAt).not.toBe(state.updatedAt);
+  });
+
+  it("reorders only active Pokemon for the combat roster", () => {
+    const state = {
+      ...createInitialGameState(),
+      pokemon: [
+        { ...createPokemonDraft(), id: "pkm-a", nickname: "A", species: "Aegislash", status: "alive" as const },
+        { ...createPokemonDraft(), id: "pkm-box", nickname: "Box", species: "Scizor", status: "box" as const },
+        { ...createPokemonDraft(), id: "pkm-b", nickname: "B", species: "Blastoise", status: "alive" as const },
+        { ...createPokemonDraft(), id: "pkm-dead", nickname: "Dead", species: "Pikachu", status: "dead" as const },
+        { ...createPokemonDraft(), id: "pkm-c", nickname: "C", species: "Charizard", status: "alive" as const },
+      ],
+    };
+
+    const next = reorderActivePokemon(state, "pkm-c", "pkm-a");
+
+    expect(next.pokemon.map((pokemon) => pokemon.id)).toEqual([
+      "pkm-c",
+      "pkm-box",
+      "pkm-a",
+      "pkm-dead",
+      "pkm-b",
+    ]);
+    expect(next.updatedAt).not.toBe(state.updatedAt);
+  });
+
+  it("keeps state unchanged when active Pokemon reorder targets are invalid", () => {
+    const state = {
+      ...createInitialGameState(),
+      pokemon: [
+        { ...createPokemonDraft(), id: "pkm-a", nickname: "A", species: "Aegislash", status: "alive" as const },
+        { ...createPokemonDraft(), id: "pkm-box", nickname: "Box", species: "Scizor", status: "box" as const },
+      ],
+    };
+
+    expect(reorderActivePokemon(state, "pkm-a", "pkm-a")).toBe(state);
+    expect(reorderActivePokemon(state, "pkm-a", "pkm-box")).toBe(state);
+    expect(reorderActivePokemon(state, "missing", "pkm-a")).toBe(state);
+  });
+
+  it("imports a Showdown team into the active combat team", () => {
+    const state = {
+      ...createInitialGameState(),
+      pokemon: [
+        {
+          id: "pkm-old",
+          species: "Lapras",
+          nickname: "Ferry",
+          level: 32,
+          types: ["Agua", "Hielo"],
+          ability: "",
+          moves: [createMoveDraft("Surf")],
+          item: "",
+          status: "alive" as const,
+          role: "",
+          value: 5,
+          notes: "",
+          routeCaught: "",
+          deathCause: "",
+          deathLocation: "",
+        },
+      ],
+    };
+    const showdownText = `GLADIATOR (Aegislash) @ Focus Sash
+Ability: Clear Body
+Level: 80
+EVs: 252 Atk / 4 SpA / 252 Spe
+- Sticky Web
+- Iron Head
+- Megahorn
+- Surf
+
+CAMILLE (Scizor) @ Occa Berry
+Ability: Sturdy
+Level: 80
+EVs: 252 HP / 252 Atk / 4 SpD
+- Phantom Force
+- Rock Tomb
+- Magnitude
+- U-turn
+
+WOOF WOOF (Houndoom-Mega) @ Life Orb
+Ability: Forewarn
+Level: 83
+- Air Slash
+- Zap Cannon`;
+    let nextId = 0;
+
+    const result = importShowdownTeam(state, showdownText, () => `fixed-id-${nextId++}`);
+
+    expect(result.imported).toHaveLength(3);
+    expect(result.imported[0]).toMatchObject({
+      id: "pkm-fixed-id-0",
+      species: "Aegislash",
+      nickname: "GLADIATOR",
+      item: "Focus Sash",
+      ability: "Clear Body",
+      level: 80,
+      status: "alive",
+      partySlot: 1,
+      types: ["Acero", "Fantasma"],
+    });
+    expect(result.imported[0].moves.map((move) => move.name)).toEqual([
+      "Sticky Web",
+      "Iron Head",
+      "Megahorn",
+      "Surf",
+    ]);
+    expect(result.imported[0].moves.find((move) => move.name === "Surf")?.type).toBe("Agua");
+    expect(result.imported[0].moves.find((move) => move.name === "Surf")).toMatchObject({
+      category: "special",
+      power: 90,
+      accuracy: 100,
+    });
+    expect(result.imported[2]).toMatchObject({
+      species: "Houndoom-Mega",
+      nickname: "WOOF WOOF",
+      types: ["Siniestro", "Fuego"],
+      stats: expect.objectContaining({ specialAttack: 263 }),
+    });
+    expect(result.imported[2].moves.find((move) => move.name === "Zap Cannon")?.type).toBe("Eléctrico");
+    expect(result.state.pokemon.find((pokemon) => pokemon.id === "pkm-old")?.status).toBe("box");
+  });
+
+  it("imports Showdown gender, Mega species and battle stats from EVs and IVs", () => {
+    const state = createInitialGameState();
+    const result = importShowdownTeam(
+      state,
+      `MELENON (Ampharos-Mega) (M) @ Tanga Berry
+Ability: Grass Pelt
+Level: 80
+EVs: 4 HP / 126 Def / 252 SpA / 126 SpD
+Bashful Nature
+IVs: 22 HP / 22 Atk / 27 Def / 7 SpA / 3 SpD / 28 Spe
+- Nuzzle
+- Hyperspace Hole
+- Sucker Punch
+- Karate Chop
+
+MANITAS (Gengar) (M) @ Gengarite
+Ability: Heavy Metal
+Level: 81
+EVs: 4 HP / 252 SpA / 252 Spe
+Jolly Nature
+IVs: 12 Def / 2 SpD
+- Dark Pulse
+- Lava Plume
+- Water Pulse
+- Sludge Bomb`,
+      () => "fixed-id",
+    );
+
+    expect(result.imported[0]).toMatchObject({
+      nickname: "MELENON",
+      species: "Ampharos-Mega",
+      types: ["Electrico", "Dragon"],
+      stats: {
+        hp: 252,
+        attack: 174,
+        defense: 219,
+        specialAttack: 325,
+        specialDefense: 208,
+        speed: 99,
+      },
+    });
+    expect(result.imported[1]).toMatchObject({
+      nickname: "MANITAS",
+      species: "Gengar",
+      types: ["Fantasma", "Veneno"],
+      stats: expect.objectContaining({
+        hp: 214,
+        defense: 144,
+        specialAttack: 306,
+        speed: 320,
+      }),
+    });
+  });
+
+  it("updates matching Showdown imports instead of duplicating them", () => {
+    const state = {
+      ...createInitialGameState(),
+      pokemon: [
+        {
+          id: "pkm-existing",
+          species: "Pikachu",
+          nickname: "OG",
+          level: 50,
+          types: ["Electrico"],
+          ability: "Static",
+          moves: [],
+          item: "",
+          status: "box" as const,
+          role: "Fast",
+          value: 8,
+          notes: "Keep this note",
+          routeCaught: "Ruta 3",
+          deathCause: "",
+          deathLocation: "",
+        },
+      ],
+    };
+
+    const result = importShowdownTeam(
+      state,
+      `OG (Pikachu) @ Lum Berry
+Ability: Wonder Guard
+Level: 80
+- Bolt Strike
+- Earthquake`,
+      () => "new-id",
+    );
+
+    expect(result.imported[0]).toMatchObject({
+      id: "pkm-existing",
+      ability: "Wonder Guard",
+      item: "Lum Berry",
+      level: 80,
+      role: "Fast",
+      value: 8,
+      routeCaught: "Ruta 3",
+    });
+    expect(result.state.pokemon).toHaveLength(1);
   });
 
   it("sorts inventory by configurable category groups", () => {

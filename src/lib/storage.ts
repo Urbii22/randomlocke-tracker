@@ -1,8 +1,15 @@
 import { createInitialGameState } from "@/lib/game";
 import { getMoveType } from "@/lib/combat";
-import type { GameState, Pokemon, PokemonMove, PokemonStats } from "@/types/randomlocke";
+import { getStandardMoveMetadata } from "@/lib/moves";
+import type { TrackedGameId } from "@/lib/trackedGame";
+import type { GameState, InventoryItem, Pokemon, PokemonMove, PokemonStats } from "@/types/randomlocke";
 
-export const STORAGE_KEY = "randomlocke-tracker-state-v4-current-team";
+export const LEGACY_STORAGE_KEY = "randomlocke-tracker-state-v4-current-team";
+export const ACTIVE_GAME_STORAGE_KEY = "randomlocke-tracker-active-game-v1";
+
+export function getGameStorageKey(game: TrackedGameId) {
+  return `randomlocke-tracker-state-v5-${game}`;
+}
 
 export function parseStoredGameState(raw: string | null): GameState {
   if (!raw) {
@@ -17,15 +24,21 @@ export function parseStoredGameState(raw: string | null): GameState {
       pokemon: Array.isArray(parsed.pokemon) ? parsed.pokemon.map(normalizePokemon) : fallback.pokemon,
       routes: Array.isArray(parsed.routes) ? parsed.routes : fallback.routes,
       battles: Array.isArray(parsed.battles) ? parsed.battles : fallback.battles,
-      inventory: Array.isArray(parsed.inventory) ? parsed.inventory : fallback.inventory,
+      inventory: Array.isArray(parsed.inventory)
+        ? normalizeInventoryIds(parsed.inventory as InventoryItem[])
+        : fallback.inventory,
       levelCaps: Array.isArray(parsed.levelCaps) ? parsed.levelCaps : fallback.levelCaps,
       settings:
         parsed.settings && typeof parsed.settings === "object"
           ? {
               saveFilePath:
-                typeof parsed.settings.saveFilePath === "string"
+                typeof parsed.settings.saveFilePath === "string" && parsed.settings.saveFilePath.trim()
                   ? parsed.settings.saveFilePath
                   : fallback.settings.saveFilePath,
+              gameDirectory:
+                typeof parsed.settings.gameDirectory === "string"
+                  ? parsed.settings.gameDirectory
+                  : fallback.settings.gameDirectory,
               lastSaveSyncAt:
                 typeof parsed.settings.lastSaveSyncAt === "string"
                   ? parsed.settings.lastSaveSyncAt
@@ -38,6 +51,24 @@ export function parseStoredGameState(raw: string | null): GameState {
   } catch {
     return createInitialGameState();
   }
+}
+
+function normalizeInventoryIds(items: InventoryItem[]): InventoryItem[] {
+  const usedIds = new Set<string>();
+
+  return items.map((item, index) => {
+    const baseId = typeof item.id === "string" && item.id.trim() ? item.id : `inventory-${index + 1}`;
+    let id = baseId;
+    let suffix = 2;
+
+    while (usedIds.has(id)) {
+      id = `${baseId}-${suffix}`;
+      suffix += 1;
+    }
+
+    usedIds.add(id);
+    return id === item.id ? item : { ...item, id };
+  });
 }
 
 function parseSaveProgress(value: unknown) {
@@ -122,33 +153,36 @@ function normalizeStats(stats: unknown): PokemonStats | undefined {
 
 function normalizeMove(raw: unknown): PokemonMove {
   if (typeof raw === "string") {
+    const metadata = getStandardMoveMetadata(raw);
+
     return {
       name: raw,
-      type: getMoveType(raw) ?? "",
-      power: null,
-      accuracy: null,
-      category: "unknown",
+      type: metadata?.type ?? (getMoveType(raw) ?? ""),
+      power: metadata?.power ?? null,
+      accuracy: metadata?.accuracy ?? null,
+      category: metadata?.category ?? "unknown",
     };
   }
 
   const move = raw as Partial<PokemonMove>;
+  const metadata = typeof move.name === "string" ? getStandardMoveMetadata(move.name) : undefined;
 
   return {
     name: typeof move.name === "string" ? move.name : "",
     type:
       typeof move.type === "string" && move.type
         ? move.type
-        : typeof move.name === "string"
-          ? (getMoveType(move.name) ?? "")
-          : "",
-    power: typeof move.power === "number" ? move.power : null,
-    accuracy: typeof move.accuracy === "number" ? move.accuracy : null,
+        : metadata?.type ??
+          (typeof move.name === "string"
+            ? (getMoveType(move.name) ?? "")
+            : ""),
+    power: typeof move.power === "number" ? move.power : (metadata?.power ?? null),
+    accuracy: typeof move.accuracy === "number" ? move.accuracy : (metadata?.accuracy ?? null),
     category:
       move.category === "physical" ||
       move.category === "special" ||
-      move.category === "status" ||
-      move.category === "unknown"
+      move.category === "status"
         ? move.category
-        : "unknown",
+        : metadata?.category ?? "unknown",
   };
 }

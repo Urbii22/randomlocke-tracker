@@ -29,6 +29,15 @@ function snapshot(overrides: Partial<SaveSnapshot> = {}): SaveSnapshot {
           specialDefense: 52,
           speed: 38,
         },
+        nature: "Modesta",
+        evs: { hp: 0, attack: 0, defense: 0, specialAttack: 252, specialDefense: 4, speed: 252 },
+        ivs: { hp: 31, attack: 12, defense: 31, specialAttack: 31, specialDefense: 31, speed: 31 },
+        experience: 8000,
+        friendship: 180,
+        currentHp: 55,
+        statusCondition: "Dormido",
+        gender: "Macho",
+        rawFields: { species: "VENUSAUR", personalID: 12345, moves: [{ id: "RAZOR_LEAF" }] },
         moves: [
           {
             name: "Lluevehojas",
@@ -109,6 +118,15 @@ describe("save sync", () => {
       partySlot: 0,
       lastSeenInSaveAt: readAt,
       stats: { hp: 64, specialAttack: 67 },
+      nature: "Modesta",
+      evs: { specialAttack: 252, speed: 252 },
+      ivs: { hp: 31, speed: 31 },
+      experience: 8000,
+      friendship: 180,
+      currentHp: 55,
+      statusCondition: "Dormido",
+      gender: "Macho",
+      rawFields: { personalID: 12345 },
     });
     expect(gible).toMatchObject({
       id: "save-gible-gible",
@@ -397,6 +415,16 @@ describe("save sync", () => {
         holderPokemonId: "",
         notes: "No sale del save",
       },
+      {
+        id: "bag-item-old",
+        name: "Objeto antiguo",
+        category: "other",
+        quantity: 1,
+        location: "Save: Objetos",
+        status: "available",
+        holderPokemonId: "",
+        notes: "Ya no está en el save",
+      },
     ];
 
     const result = mergeSaveSnapshot(
@@ -427,6 +455,7 @@ describe("save sync", () => {
         expect.objectContaining({ id: "manual-note", notes: "No sale del save" }),
       ]),
     );
+    expect(result.state.inventory.some((item) => item.id === "bag-item-old")).toBe(false);
     expect(result.report).toMatchObject({ inventoryAdded: 1, inventoryUpdated: 0 });
   });
 
@@ -469,6 +498,39 @@ describe("save sync", () => {
     expect(result.report).toMatchObject({ inventoryAdded: 0, inventoryUpdated: 1 });
   });
 
+  it("uses the save item key instead of collision-prone numeric hashes", () => {
+    const result = mergeSaveSnapshot(
+      createInitialGameState(),
+      snapshot({
+        bag: [
+          {
+            itemId: 2109426702,
+            itemKey: "ITEM_A",
+            name: "Objeto A",
+            quantity: 1,
+            category: "other",
+            pocket: "Objetos",
+          },
+          {
+            itemId: 2109426702,
+            itemKey: "ITEM_B",
+            name: "Objeto B",
+            quantity: 1,
+            category: "other",
+            pocket: "Objetos",
+          },
+        ],
+      }),
+    );
+
+    expect(result.state.inventory.map((item) => item.id)).toEqual(
+      expect.arrayContaining(["bag-item-ITEM_A", "bag-item-ITEM_B"]),
+    );
+    expect(new Set(result.state.inventory.map((item) => item.id)).size).toBe(
+      result.state.inventory.length,
+    );
+  });
+
   it("reports invalid reader JSON", () => {
     expect(parseSaveReaderOutput("{not-json")).toEqual({
       ok: false,
@@ -494,6 +556,26 @@ describe("save sync", () => {
           badges: 3,
           location: { mapId: 24, name: "Mapa 24" },
         },
+      },
+    });
+  });
+
+  it("parses optional training data from reader JSON", () => {
+    const parsed = parseSaveReaderOutput(JSON.stringify(snapshot()));
+
+    expect(parsed).toMatchObject({
+      ok: true,
+      snapshot: {
+        party: [
+          {
+            nature: "Modesta",
+            evs: { specialAttack: 252, speed: 252 },
+            ivs: { hp: 31, speed: 31 },
+            currentHp: 55,
+            gender: "Macho",
+            rawFields: { personalID: 12345 },
+          },
+        ],
       },
     });
   });

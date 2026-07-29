@@ -124,11 +124,22 @@ function parseSavePokemon(
       slot: getNumber(value.slot),
       species,
       nickname,
+      spriteKey: getString(value.spriteKey),
+      shiny: getBoolean(value.shiny),
       level,
       types: Array.isArray(value.types) ? value.types.filter(isString) : [],
       ability: getString(value.ability) ?? "",
       item: getString(value.item) ?? null,
       stats: parseStats(value.stats),
+      nature: getString(value.nature),
+      evs: parseStats(value.evs),
+      ivs: parseStats(value.ivs),
+      experience: getNumber(value.experience),
+      friendship: getNumber(value.friendship),
+      currentHp: getNumber(value.currentHp),
+      statusCondition: getString(value.statusCondition),
+      gender: getString(value.gender),
+      rawFields: isRecord(value.rawFields) ? value.rawFields : undefined,
       moves: Array.isArray(value.moves) ? value.moves.map(parseMove).filter(isMove) : [],
     },
   };
@@ -157,13 +168,19 @@ function parseSaveBagItem(
 
   return {
     ok: true,
-    item: {
-      itemId: getNumber(value.itemId),
-      name,
-      quantity,
-      category,
-      pocket: getString(value.pocket) ?? "",
-    },
+      item: {
+        itemId: getNumber(value.itemId),
+        itemKey: getString(value.itemKey),
+        name,
+        quantity,
+        category,
+        pocket: getString(value.pocket) ?? "",
+        pocketNumber: getNumber(value.pocketNumber),
+        flags: Array.isArray(value.flags) ? value.flags.filter(isString) : [],
+        itemName: getString(value.itemName),
+        moveKey: getString(value.moveKey),
+        moveName: getString(value.moveName),
+      },
   };
 }
 
@@ -251,6 +268,10 @@ function getString(value: unknown): string | undefined {
 
 function getNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function getBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
 }
 
 function getNullableNumber(value: unknown): number | null {

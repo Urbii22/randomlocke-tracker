@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import { parseSaveReaderOutput } from "@/lib/saveReader";
@@ -20,6 +20,7 @@ export async function POST(request: Request) {
   }
 
   const savePath = readSavePath(body);
+  const gameDirectory = readGameDirectory(body);
   const validation = validateConfiguredSavePath(savePath, existsSync, resolveDirectorySave);
 
   if (!validation.ok) {
@@ -29,12 +30,16 @@ export async function POST(request: Request) {
   const command = resolveSaveReaderCommand();
 
   try {
-    const { stdout, stderr } = await execFileAsync(command.file, command.args(validation.savePath), {
-      cwd: process.cwd(),
-      timeout: TIMEOUT_MS,
-      windowsHide: true,
-      maxBuffer: 1024 * 1024 * 8,
-    });
+    const { stdout, stderr } = await execFileAsync(
+      command.file,
+      command.args(validation.savePath, gameDirectory),
+      {
+        cwd: process.cwd(),
+        timeout: TIMEOUT_MS,
+        windowsHide: true,
+        maxBuffer: 1024 * 1024 * 8,
+      },
+    );
     const parsed = parseSaveReaderOutput(stdout);
 
     if (!parsed.ok) {
@@ -64,7 +69,22 @@ function resolveDirectorySave(savePath: string): string | undefined {
     return undefined;
   }
 
-  return path.join(savePath, "main");
+  const mainPath = path.join(savePath, "main");
+  if (existsSync(mainPath)) {
+    return mainPath;
+  }
+
+  const switchSavePath = path.join(savePath, "SaveData.bin");
+  if (existsSync(switchSavePath)) {
+    return switchSavePath;
+  }
+
+  const anilSaves = readdirSync(savePath, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && /^Partida\s+\d+\.rxdata$/i.test(entry.name))
+    .map((entry) => path.join(savePath, entry.name))
+    .toSorted((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs);
+
+  return anilSaves[0];
 }
 
 function readSavePath(body: unknown): unknown {
@@ -73,6 +93,16 @@ function readSavePath(body: unknown): unknown {
   }
 
   return body.savePath;
+}
+
+function readGameDirectory(body: unknown): string | undefined {
+  if (typeof body !== "object" || body === null || !("gameDirectory" in body)) {
+    return undefined;
+  }
+
+  return typeof body.gameDirectory === "string" && body.gameDirectory.trim()
+    ? body.gameDirectory.trim()
+    : undefined;
 }
 
 function resolveSaveReaderCommand() {
@@ -90,7 +120,7 @@ function resolveSaveReaderCommand() {
   if (existsSync(exePath)) {
     return {
       file: exePath,
-      args: (savePath: string) => ["--save", savePath],
+      args: (savePath: string, gameDirectory?: string) => buildReaderArgs(savePath, gameDirectory),
     };
   }
 
@@ -98,8 +128,20 @@ function resolveSaveReaderCommand() {
 
   return {
     file: existsSync(localDotnet) ? localDotnet : "dotnet",
-    args: (savePath: string) => ["run", "--project", projectPath, "--", "--save", savePath],
+    args: (savePath: string, gameDirectory?: string) => [
+      "run",
+      "--project",
+      projectPath,
+      "--",
+      ...buildReaderArgs(savePath, gameDirectory),
+    ],
   };
+}
+
+function buildReaderArgs(savePath: string, gameDirectory?: string): string[] {
+  return gameDirectory
+    ? ["--save", savePath, "--game-dir", gameDirectory]
+    : ["--save", savePath];
 }
 
 function sanitizeLog(value: string): string {
