@@ -270,6 +270,23 @@ export function getBestMoveEffectivenessAgainstTargets(
   );
 }
 
+export function getBestSwitchInEffectivenessAgainstTargets(
+  attackerTypeGroups: PokemonType[][],
+  defenderTypes: PokemonType[],
+): number {
+  const attackerTypes = Array.from(new Set(attackerTypeGroups.flat()));
+
+  if (attackerTypes.length === 0 || defenderTypes.length === 0) {
+    return 1;
+  }
+
+  return Math.max(
+    ...attackerTypes.map((attackerType) =>
+      getDefensiveMultiplier(attackerType, defenderTypes),
+    ),
+  );
+}
+
 export function getPokemonDefensiveProfile(pokemon: Pokemon): CombatMember["defensiveProfile"] {
   const defenderTypes = pokemon.types
     .map(normalizePokemonType)

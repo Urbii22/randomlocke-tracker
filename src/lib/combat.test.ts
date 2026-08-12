@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Pokemon } from "@/types/randomlocke";
 import {
   getBestMoveEffectivenessAgainstTargets,
+  getBestSwitchInEffectivenessAgainstTargets,
   getMoveEffectivenessAgainstTypes,
   getMoveType,
   getPokemonDefensiveProfile,
@@ -130,5 +131,18 @@ describe("combat helpers", () => {
     expect(getBestMoveEffectivenessAgainstTargets("Normal", [["Fantasma"], ["Roca"]])).toBe(0.5);
     expect(getBestMoveEffectivenessAgainstTargets(undefined, [["Agua"], ["Fuego"]])).toBe(1);
     expect(getBestMoveEffectivenessAgainstTargets("Planta", [])).toBe(1);
+  });
+
+  it("identifies unsafe switch-ins from the selected rival types", () => {
+    expect(
+      getBestSwitchInEffectivenessAgainstTargets([["Fuego", "Volador"]], ["Planta"]),
+    ).toBe(2);
+    expect(
+      getBestSwitchInEffectivenessAgainstTargets([["Agua"], ["Tierra"]], ["Fuego"]),
+    ).toBe(2);
+    expect(
+      getBestSwitchInEffectivenessAgainstTargets([["Agua"]], ["Planta"]),
+    ).toBe(0.5);
+    expect(getBestSwitchInEffectivenessAgainstTargets([], ["Planta"])).toBe(1);
   });
 });

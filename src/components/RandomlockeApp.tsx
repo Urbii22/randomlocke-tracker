@@ -47,6 +47,7 @@ import { useLocalStorageGameState } from "@/hooks/useLocalStorageGameState";
 import {
   getDefensiveMultiplier,
   getBestMoveEffectivenessAgainstTargets,
+  getBestSwitchInEffectivenessAgainstTargets,
   getTeamCombatProfile,
   normalizePokemonType,
   pokemonTypes,
@@ -1608,6 +1609,31 @@ function CombatRosterRow({
     ? getBestMoveEffectivenessAgainstTargets(expandedMove.type, targetTypeGroups)
     : 1;
   const hasTargets = targetTypeGroups.length > 0;
+  const switchInEffectiveness = getBestSwitchInEffectivenessAgainstTargets(
+    targetTypeGroups,
+    member.pokemon.types
+      .map(normalizeTypeForUi)
+      .filter((type): type is PokemonType => Boolean(type)),
+  );
+  const isUnsafeSwitch = hasTargets && switchInEffectiveness > 1;
+  const isRecommendedSwitch = hasTargets && switchInEffectiveness < 1;
+  const isImmuneSwitch = isRecommendedSwitch && switchInEffectiveness === 0;
+  const attackEffectiveness = hasTargets
+    ? Math.max(
+        1,
+        ...member.moveTypes
+          .filter(({ move }) => isDamagingMove(move))
+          .map(({ type }) => getBestMoveEffectivenessAgainstTargets(type, targetTypeGroups)),
+      )
+    : 1;
+  const hasEffectiveAttack = hasTargets && attackEffectiveness > 1;
+  const switchBadgeLabel = isUnsafeSwitch
+    ? `NO ENTRA x${switchInEffectiveness}`
+    : isImmuneSwitch
+      ? "ENTRA 0"
+      : isRecommendedSwitch
+        ? `ENTRA x${switchInEffectiveness}`
+        : undefined;
 
   return (
     <article
@@ -1693,7 +1719,44 @@ function CombatRosterRow({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div
+        className={cn(
+          "flex flex-wrap gap-1.5",
+          isUnsafeSwitch
+            ? "rounded-sm border border-rose-300/50 bg-rose-500/10 p-1"
+            : isRecommendedSwitch || hasEffectiveAttack
+              ? "rounded-sm border border-emerald-300/50 bg-emerald-400/10 p-1"
+              : "",
+        )}
+        title={[
+          isUnsafeSwitch ? `No recomendable entrar: recibe x${switchInEffectiveness}.` : "",
+          isRecommendedSwitch ? `Cambio recomendado: recibe x${switchInEffectiveness}.` : "",
+          hasEffectiveAttack ? `Tiene un ataque eficaz x${attackEffectiveness}.` : "",
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined}
+      >
+        {switchBadgeLabel ? (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-sm border px-1.5 py-1 font-mono text-[0.62rem] font-black",
+              isUnsafeSwitch
+                ? switchInEffectiveness >= 4
+                  ? "border-rose-100 bg-rose-200 text-rose-950"
+                  : "border-rose-300/70 bg-rose-500/20 text-rose-100"
+                : isImmuneSwitch
+                  ? "border-cyan-100 bg-cyan-200 text-cyan-950"
+                  : "border-emerald-200/70 bg-emerald-400/20 text-emerald-50",
+            )}
+          >
+            {switchBadgeLabel}
+          </span>
+        ) : null}
+        {hasEffectiveAttack ? (
+          <span className="inline-flex items-center gap-1 rounded-sm border border-emerald-200/70 bg-emerald-400/20 px-1.5 py-1 font-mono text-[0.62rem] font-black text-emerald-50">
+            ATACA x{attackEffectiveness}
+          </span>
+        ) : null}
         <TypeCount count={member.defensiveProfile.weaknesses.length} tone="danger" />
         <CompactTypeList rows={member.defensiveProfile.weaknesses} tone="danger" />
       </div>
